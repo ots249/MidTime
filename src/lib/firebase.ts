@@ -278,7 +278,6 @@ export function listenToUserMedicines(
   onData: (medicines: Medicine[]) => void,
   onError?: (error: Error) => void
 ) {
-  const path = `users/${userId}/medicines`;
   const q = query(collection(db, "users", userId, "medicines"));
   return onSnapshot(
     q,
@@ -290,9 +289,8 @@ export function listenToUserMedicines(
       onData(meds);
     },
     (error) => {
-      console.warn("Medicines listener sync warning:", error);
+      console.warn("Medicines listener sync status:", error);
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.GET, path);
     }
   );
 }
@@ -302,7 +300,6 @@ export function listenToUserLogs(
   onData: (logs: IntakeLog[]) => void,
   onError?: (error: Error) => void
 ) {
-  const path = `users/${userId}/logs`;
   const q = query(collection(db, "users", userId, "logs"));
   return onSnapshot(
     q,
@@ -314,9 +311,8 @@ export function listenToUserLogs(
       onData(logs);
     },
     (error) => {
-      console.warn("Logs listener sync warning:", error);
+      console.warn("Logs listener sync status:", error);
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.GET, path);
     }
   );
 }
@@ -326,7 +322,6 @@ export function listenToUserPrescriptions(
   onData: (prescriptions: PrescriptionRecord[]) => void,
   onError?: (error: Error) => void
 ) {
-  const path = `users/${userId}/prescriptions`;
   const q = query(collection(db, "users", userId, "prescriptions"));
   return onSnapshot(
     q,
@@ -338,9 +333,9 @@ export function listenToUserPrescriptions(
       onData(prescriptions);
     },
     (error) => {
-      console.warn("Prescriptions listener sync warning:", error);
+      console.warn("Prescriptions listener sync status:", error);
       if (onError) onError(error);
-      handleFirestoreError(error, OperationType.GET, path);
     }
   );
 }
+

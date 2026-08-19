@@ -667,8 +667,9 @@ Respond in strict JSON adhering to the provided schema.`;
       }
     };
 
-    // Retry with primary and fallback models in case of high demand (503 / 429)
-    const candidateModels = ["gemini-3.7-flash", "gemini-2.5-flash"];
+    // Robust model fallback sequence compliant with @google/genai SDK
+    // Primary: gemini-3.7-flash, Fallbacks: gemini-flash-latest, gemini-3.1-flash-lite
+    const candidateModels = ["gemini-3.7-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"];
     let response: any = null;
     let lastError: any = null;
 
@@ -684,9 +685,33 @@ Respond in strict JSON adhering to the provided schema.`;
           }
         } catch (err: any) {
           lastError = err;
-          console.warn(`Attempt ${attempt} with model ${modelName} failed:`, err?.message || err);
-          if (attempt < 2) {
-            await new Promise((res) => setTimeout(res, 1200));
+          const errMsg = err?.message || String(err);
+          const isRateLimitOrDemand =
+            err?.status === 503 ||
+            err?.code === 503 ||
+            err?.status === 429 ||
+            errMsg.includes("503") ||
+            errMsg.includes("high demand") ||
+            errMsg.includes("RESOURCE_EXHAUSTED") ||
+            errMsg.includes("UNAVAILABLE");
+
+          console.warn(
+            `Model ${modelName} (attempt ${attempt}) encountered ${
+              isRateLimitOrDemand ? "temporary high demand / 503" : "error"
+            }:`,
+            errMsg
+          );
+
+          if (isRateLimitOrDemand) {
+            // If it's a 503 high demand on attempt 1, try next model or wait briefly
+            if (attempt < 2) {
+              await new Promise((res) => setTimeout(res, 800 * attempt));
+            }
+          } else {
+            // Other errors, wait 500ms before retry
+            if (attempt < 2) {
+              await new Promise((res) => setTimeout(res, 500));
+            }
           }
         }
       }
@@ -702,12 +727,20 @@ Respond in strict JSON adhering to the provided schema.`;
     res.json({ success: true, data: parsedData });
   } catch (error: any) {
     console.error("Prescription analysis error:", error);
-    const msg =
-      error?.status === 503 || error?.message?.includes("503") || error?.message?.includes("high demand")
-        ? "মডেলটিতে অতিরিক্ত ট্রাফিক রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর পুনরায় চেষ্টা করুন।"
-        : error?.message || "প্রেসক্রিপশন স্ক্যান করতে সমস্যা হয়েছে";
+    const errMsg = error?.message || String(error);
+    const isDemandError =
+      error?.status === 503 ||
+      error?.code === 503 ||
+      errMsg.includes("503") ||
+      errMsg.includes("high demand") ||
+      errMsg.includes("UNAVAILABLE");
+
+    const userMessage = isDemandError
+      ? "এআই সার্ভারে সাময়িক অতিরিক্ত ট্রাফিক রয়েছে। অনুগ্রহ করে কয়েক সেকেন্ড পর পুনরায় 'এআই দিয়ে স্ক্যান করুন' বোতামে চাপুন।"
+      : errMsg || "প্রেসক্রিপশন স্ক্যান করতে সমস্যা হয়েছে";
+
     res.status(500).json({
-      error: msg
+      error: userMessage
     });
   }
 });

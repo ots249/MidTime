@@ -20,37 +20,45 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    function incoming() {
-      return request.resource.data;
-    }
-
     // Health check doc for SDK testConnection
     match /test/connection {
       allow read: if true;
     }
 
-    // User Subcollections
+    // User Root & Subcollections
     match /users/{userId} {
       allow read, write: if isOwner(userId);
 
       // Medicines Subcollection
       match /medicines/{medicineId} {
-        allow read, write: if isOwner(userId) && isValidId(medicineId);
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(medicineId);
+        allow create, update: if isOwner(userId) && isValidId(medicineId);
+        allow delete: if isOwner(userId) && isValidId(medicineId);
       }
 
       // Daily Logs Subcollection
       match /logs/{logId} {
-        allow read, write: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow create, update: if isOwner(userId) && isValidId(logId);
+        allow delete: if isOwner(userId) && isValidId(logId);
       }
 
       // Prescriptions Subcollection
       match /prescriptions/{prescriptionId} {
-        allow read, write: if isOwner(userId) && isValidId(prescriptionId);
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(prescriptionId);
+        allow create, update: if isOwner(userId) && isValidId(prescriptionId);
+        allow delete: if isOwner(userId) && isValidId(prescriptionId);
       }
 
       // User Settings Subcollection
       match /settings/{settingId} {
-        allow read, write: if isOwner(userId) && isValidId(settingId);
+        allow list: if isOwner(userId);
+        allow get: if isOwner(userId) && isValidId(settingId);
+        allow create, update: if isOwner(userId) && isValidId(settingId);
+        allow delete: if isOwner(userId) && isValidId(settingId);
       }
     }
   }

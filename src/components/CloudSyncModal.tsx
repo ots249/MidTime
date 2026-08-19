@@ -70,8 +70,11 @@ export const CloudSyncModal: React.FC<CloudSyncModalProps> = ({
       console.error("Login failed:", err);
       if (err.code === "auth/popup-closed-by-user") {
         setErrorMsg("লগইন উইন্ডো বন্ধ করা হয়েছে।");
+      } else if (err.code === "auth/unauthorized-domain") {
+        const currentHost = typeof window !== "undefined" ? window.location.hostname : "midtime.vercel.app";
+        setErrorMsg(`এই ডোমেনটি (${currentHost}) Firebase-এ অনুমোদিত নয়। Firebase Console ➔ Authentication ➔ Settings ➔ Authorized domains-এ '${currentHost}' যোগ করুন।`);
       } else {
-        setErrorMsg("গুগল লগইন করতে সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট সংযোগ চেক করুন।");
+        setErrorMsg("গুগল লগইন করতে সমস্যা হয়েছে। অনুগ্রহ করে ইন্টারনেট সংযোগ ও সেটিংস চেক করুন।");
       }
     } finally {
       setIsLoading(false);
