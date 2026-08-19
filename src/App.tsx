@@ -8,11 +8,13 @@ import { StockTrackerView } from "./components/StockTrackerView";
 import { PrescriptionView } from "./components/PrescriptionView";
 import { AddMedicineModal } from "./components/AddMedicineModal";
 import { MedicineDetailModal } from "./components/MedicineDetailModal";
+import { SettingsModal } from "./components/SettingsModal";
 import {
   Medicine,
   Prescription,
   DailyLog,
   TimeSlot,
+  BackupData,
   DEFAULT_SAMPLE_MEDICINES
 } from "./types";
 import { soundManager } from "./utils/sound";
@@ -22,13 +24,55 @@ export default function App() {
   // Navigation: schedule, medicines, stock, prescriptions
   const [activeTab, setActiveTab] = useState<"schedule" | "medicines" | "stock" | "prescriptions">("schedule");
 
-  // State: Medicines
+  // Theme state (Light / Dark mode)
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    try {
+      const saved = localStorage.getItem("med_tracker_theme");
+      if (saved === "dark" || saved === "light") return saved;
+      // Default to light, but respect system preference if set
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+        return "dark";
+      }
+    } catch (e) {
+      console.warn("Theme read error", e);
+    }
+    return "light";
+  });
+
+  // Sound enabled state
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+
+  // Sync theme with HTML root class
+  useEffect(() => {
+    try {
+      if (theme === "dark") {
+        document.documentElement.classList.add("dark");
+      } else {
+        document.documentElement.classList.remove("dark");
+      }
+      localStorage.setItem("med_tracker_theme", theme);
+    } catch (e) {
+      console.warn("Theme save error", e);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+  };
+
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundEnabled(next);
+    soundManager.setSoundEnabled(next);
+  };
+
+  // State: Medicines (empty default if no previous user data)
   const [medicines, setMedicines] = useState<Medicine[]>(() => {
     try {
       const saved = localStorage.getItem("med_tracker_medicines");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.warn("Error reading medicines from localStorage", e);
@@ -70,6 +114,7 @@ export default function App() {
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [selectedDetailMed, setSelectedDetailMed] = useState<Medicine | null>(null);
 
@@ -101,6 +146,48 @@ export default function App() {
       console.warn("LocalStorage save error", e);
     }
   }, [prescriptions]);
+
+  // Restore data from Backup JSON
+  const handleRestoreBackup = (backup: BackupData, mode: "replace" | "merge") => {
+    if (mode === "replace") {
+      setMedicines(backup.medicines || []);
+      setDailyLogs(backup.dailyLogs || {});
+      setPrescriptions(backup.prescriptions || []);
+      if (backup.theme) {
+        setTheme(backup.theme);
+      }
+    } else {
+      // Merge mode
+      setMedicines((prev) => {
+        const existingIds = new Set(prev.map((m) => m.id));
+        const newMeds = (backup.medicines || []).filter((m) => !existingIds.has(m.id));
+        return [...prev, ...newMeds];
+      });
+      setDailyLogs((prev) => ({
+        ...prev,
+        ...(backup.dailyLogs || {})
+      }));
+      setPrescriptions((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const newPres = (backup.prescriptions || []).filter((p) => !existingIds.has(p.id));
+        return [...prev, ...newPres];
+      });
+    }
+  };
+
+  // Clear all data
+  const handleClearAllData = () => {
+    setMedicines([]);
+    setDailyLogs({});
+    setPrescriptions([]);
+    try {
+      localStorage.removeItem("med_tracker_medicines");
+      localStorage.removeItem("med_tracker_logs");
+      localStorage.removeItem("med_tracker_prescriptions");
+    } catch (e) {
+      console.warn("Error clearing local storage", e);
+    }
+  };
 
   // Toggle Taken Status for a medicine and slot
   const handleToggleTaken = (medicineId: string, slot: TimeSlot) => {
@@ -345,7 +432,7 @@ export default function App() {
   const outOfStockCount = stockCalculations.filter((c) => c.isOutOfStock).length;
 
   return (
-    <div className="min-h-screen bg-slate-100/70 text-slate-900 pb-16 font-sans antialiased">
+    <div className="min-h-screen bg-slate-100/70 dark:bg-slate-950 text-slate-900 dark:text-slate-100 pb-16 font-sans antialiased transition-colors">
       {/* Header */}
       <Header
         activeTab={activeTab}
@@ -354,6 +441,9 @@ export default function App() {
           setEditingMedicine(null);
           setIsAddModalOpen(true);
         }}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         lowStockCount={lowStockCount}
         outOfStockCount={outOfStockCount}
         totalMedicines={medicines.length}
@@ -368,7 +458,7 @@ export default function App() {
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 animate-fade-in backdrop-blur-xs">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-white text-white dark:text-slate-900 px-4 py-2.5 rounded-2xl shadow-xl text-xs font-semibold flex items-center gap-2 border border-slate-700 dark:border-slate-300 animate-fade-in backdrop-blur-xs">
           <span>{toastMessage}</span>
         </div>
       )}
@@ -433,6 +523,22 @@ export default function App() {
           />
         )}
       </main>
+
+      {/* Settings Modal (Theme, JSON Export/Import, Reset) */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
+        medicines={medicines}
+        dailyLogs={dailyLogs}
+        prescriptions={prescriptions}
+        onRestoreBackup={handleRestoreBackup}
+        onClearAllData={handleClearAllData}
+        onShowToast={showToast}
+      />
 
       {/* Add / Edit Medicine Modal */}
       <AddMedicineModal
