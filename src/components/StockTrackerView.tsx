@@ -100,8 +100,8 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
           onClick={() => setFilter("all")}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             filter === "all"
-              ? "bg-slate-900 text-white border-slate-900 shadow-sm"
-              : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
+              ? "bg-slate-900 dark:bg-slate-800 text-white border-slate-900 dark:border-teal-500 shadow-sm"
+              : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
           }`}
         >
           <div className="flex items-center justify-between">
@@ -114,46 +114,46 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
 
         <div
           onClick={() => setFilter("all")}
-          className="p-3.5 rounded-2xl bg-white border border-emerald-200 text-slate-800 shadow-2xs"
+          className="p-3.5 rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-900/60 text-slate-800 dark:text-slate-200 shadow-2xs cursor-pointer hover:border-emerald-300"
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-emerald-800">পর্যাপ্ত মজুত</span>
-            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-semibold text-emerald-800 dark:text-emerald-300">পর্যাপ্ত মজুত</span>
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-emerald-700 mt-1.5">{toBanglaNumber(healthyStockCount)} টি</p>
-          <p className="text-[11px] text-slate-500 mt-0.5">চিন্তাহীন মজুত</p>
+          <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400 mt-1.5">{toBanglaNumber(healthyStockCount)} টি</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">চিন্তাহীন মজুত</p>
         </div>
 
         <div
           onClick={() => setFilter("low")}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             filter === "low"
-              ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-              : "bg-white text-slate-800 border-amber-200 hover:border-amber-300 shadow-2xs"
+              ? "bg-amber-600 dark:bg-amber-700 text-white border-amber-600 shadow-sm"
+              : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-amber-200 dark:border-amber-900/60 hover:border-amber-300 shadow-2xs"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-800">শেষ হওয়ার পথে</span>
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">শেষ হওয়ার পথে</span>
+            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
           </div>
-          <p className="text-2xl font-bold text-amber-700 mt-1.5">{toBanglaNumber(lowStockCount)} টি</p>
-          <p className="text-[11px] text-amber-800/80 mt-0.5">রিফিল প্রয়োজন</p>
+          <p className="text-2xl font-bold text-amber-700 dark:text-amber-400 mt-1.5">{toBanglaNumber(lowStockCount)} টি</p>
+          <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">রিফিল প্রয়োজন</p>
         </div>
 
         <div
           onClick={() => setFilter("out")}
           className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
             filter === "out"
-              ? "bg-rose-600 text-white border-rose-600 shadow-sm"
-              : "bg-white text-slate-800 border-rose-200 hover:border-rose-300 shadow-2xs"
+              ? "bg-rose-600 dark:bg-rose-700 text-white border-rose-600 shadow-sm"
+              : "bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border-rose-200 dark:border-rose-900/60 hover:border-rose-300 shadow-2xs"
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-rose-800">সম্পূর্ণ শেষ</span>
-            <TrendingDown className="w-4 h-4 text-rose-600" />
+            <span className="text-xs font-semibold text-rose-800 dark:text-rose-300">সম্পূর্ণ শেষ</span>
+            <TrendingDown className="w-4 h-4 text-rose-600 dark:text-rose-400" />
           </div>
-          <p className="text-2xl font-bold text-rose-700 mt-1.5">{toBanglaNumber(outOfStockCount)} টি</p>
-          <p className="text-[11px] text-rose-700/80 mt-0.5">জরুরি কিনতে হবে</p>
+          <p className="text-2xl font-bold text-rose-700 dark:text-rose-400 mt-1.5">{toBanglaNumber(outOfStockCount)} টি</p>
+          <p className="text-[11px] text-rose-700/80 dark:text-rose-300/80 mt-0.5">জরুরি কিনতে হবে</p>
         </div>
       </div>
 
@@ -167,7 +167,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               filter === "all"
                 ? "bg-teal-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
             }`}
           >
             সব ওষুধ ({toBanglaNumber(medicines.length)})
@@ -179,7 +179,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer ${
               filter === "low"
                 ? "bg-amber-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
             }`}
           >
             সতর্কতা / শেষ হওয়ার পথে ({toBanglaNumber(lowStockCount + outOfStockCount)})
@@ -190,7 +190,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
           id="stock-add-medicine-btn"
           type="button"
           onClick={onOpenAddModal}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-colors cursor-pointer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-teal-600 text-white text-xs font-semibold hover:bg-slate-800 dark:hover:bg-teal-700 transition-colors cursor-pointer"
         >
           <Plus className="w-3.5 h-3.5" />
           <span>নতুন ওষুধ যোগ</span>
@@ -200,7 +200,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
       {/* Stock Cards List */}
       <div className="space-y-3">
         {filteredStats.length === 0 ? (
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 text-center text-slate-400 text-xs">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 border border-slate-200 dark:border-slate-800 text-center text-slate-400 dark:text-slate-500 text-xs transition-colors">
             এই ক্যাটাগরিতে কোনো ওষুধ পাওয়া যায়নি।
           </div>
         ) : (
@@ -210,12 +210,12 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
             return (
               <div
                 key={med.id}
-                className={`bg-white rounded-2xl border p-4 sm:p-5 transition-all shadow-xs ${
+                className={`bg-white dark:bg-slate-900 rounded-2xl border p-4 sm:p-5 transition-all shadow-xs ${
                   calc.isOutOfStock
-                    ? "border-rose-300 ring-1 ring-rose-200"
+                    ? "border-rose-300 dark:border-rose-900/80 ring-1 ring-rose-200 dark:ring-rose-950"
                     : calc.isLowStock
-                    ? "border-amber-300 ring-1 ring-amber-100"
-                    : "border-slate-200"
+                    ? "border-amber-300 dark:border-amber-900/80 ring-1 ring-amber-100 dark:ring-amber-950"
+                    : "border-slate-200 dark:border-slate-800"
                 }`}
               >
                 {/* Main Header Row */}
@@ -224,10 +224,10 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         calc.isOutOfStock
-                          ? "bg-rose-100 text-rose-700"
+                          ? "bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-400"
                           : calc.isLowStock
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-teal-50 text-teal-700"
+                          ? "bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-400"
+                          : "bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400"
                       }`}
                     >
                       <Pill className="w-5 h-5" />
@@ -236,13 +236,13 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <h3
-                          className="text-base sm:text-lg font-bold text-slate-900 cursor-pointer hover:text-teal-700"
+                          className="text-base sm:text-lg font-bold text-slate-900 dark:text-white cursor-pointer hover:text-teal-700 dark:hover:text-teal-400"
                           onClick={() => onOpenMedicineDetails(med)}
                         >
                           {med.name}
                         </h3>
                         {med.strength && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                             {med.strength}
                           </span>
                         )}
@@ -254,16 +254,16 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                       </div>
 
                       {med.generic && (
-                        <p className="text-xs text-slate-500 mt-0.5">{med.generic}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{med.generic}</p>
                       )}
 
-                      <p className="text-xs text-slate-600 mt-1 flex flex-wrap items-center gap-2">
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 flex flex-wrap items-center gap-2">
                         <span>
-                          <strong>খাওয়ার নিয়ম:</strong> {getDoseDescriptionBangla(med)}
+                          <strong className="text-slate-700 dark:text-slate-300">খাওয়ার নিয়ম:</strong> {getDoseDescriptionBangla(med)}
                         </span>
-                        <span className="text-slate-300">•</span>
+                        <span className="text-slate-300 dark:text-slate-600">•</span>
                         <span>
-                          <strong>দৈনিক খরচ:</strong> {toBanglaNumber(daily)} টি
+                          <strong className="text-slate-700 dark:text-slate-300">দৈনিক খরচ:</strong> {toBanglaNumber(daily)} টি
                         </span>
                       </p>
                     </div>
@@ -277,7 +277,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                       onClick={() =>
                         isEditing ? setEditingStockMedId(null) : startEditStock(med)
                       }
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>{isEditing ? "বাতিল" : "মজুত আপডেট"}</span>
@@ -287,22 +287,22 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
 
                 {/* Stock Details & Calculation Box */}
                 {!isEditing ? (
-                  <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/70 p-3 rounded-xl">
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/70 dark:bg-slate-800/60 p-3 rounded-xl transition-colors">
                     <div>
-                      <span className="text-xs text-slate-500 font-medium">কয় পাতা বাকি:</span>
-                      <p className="text-base font-bold text-slate-900 mt-0.5">
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">কয় পাতা বাকি:</span>
+                      <p className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
                         {calc.formattedBangla}
                       </p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
                         (প্রতি পাতায় {toBanglaNumber(med.stock.tabletsPerStrip || 10)} টি ট্যাবলেট)
                       </p>
                     </div>
 
                     <div>
-                      <span className="text-xs text-slate-500 font-medium">আর কত দিন চলবে:</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">আর কত দিন চলবে:</span>
                       <p
                         className={`text-base font-bold mt-0.5 ${
-                          calc.daysRemaining <= 3 ? "text-rose-600 font-extrabold" : "text-emerald-700"
+                          calc.daysRemaining <= 3 ? "text-rose-600 dark:text-rose-400 font-extrabold" : "text-emerald-700 dark:text-emerald-400"
                         }`}
                       >
                         {calc.daysRemaining >= 999
@@ -311,14 +311,14 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                           ? "আজই শেষ!"
                           : `আর ${toBanglaNumber(calc.daysRemaining)} দিন চলবে`}
                       </p>
-                      <p className="text-[11px] text-slate-400">
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
                         সতর্কবার্তা থ্রেশহোল্ড: {toBanglaNumber(med.stock.lowStockThreshold || 5)} টি
                       </p>
                     </div>
 
                     {/* Quick Refill Actions */}
                     <div className="flex flex-col justify-center">
-                      <span className="text-xs text-slate-500 font-medium mb-1">দ্রুত পাতা যোগ করুন:</span>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium mb-1">দ্রুত পাতা যোগ করুন:</span>
                       <div className="flex items-center gap-1.5">
                         <button
                           id={`quick-add-1-strip-${med.id}`}
@@ -333,7 +333,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                           id={`quick-add-2-strip-${med.id}`}
                           type="button"
                           onClick={() => onQuickAddStrips(med.id, 2)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer shadow-2xs active:scale-95"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-100 dark:bg-emerald-950 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer shadow-2xs active:scale-95"
                           title="২ পাতা যোগ করুন"
                         >
                           +২ পাতা
@@ -342,7 +342,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                           id={`quick-add-3-strip-${med.id}`}
                           type="button"
                           onClick={() => onQuickAddStrips(med.id, 3)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 transition-colors cursor-pointer shadow-2xs active:scale-95"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-100 dark:bg-emerald-950 hover:bg-emerald-200 dark:hover:bg-emerald-900 text-emerald-800 dark:text-emerald-300 transition-colors cursor-pointer shadow-2xs active:scale-95"
                           title="৩ পাতা যোগ করুন"
                         >
                           +৩ পাতা
@@ -352,21 +352,21 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                   </div>
                 ) : (
                   /* Edit Stock Form */
-                  <div className="mt-4 pt-3 border-t border-slate-100 bg-teal-50/50 p-4 rounded-xl space-y-3">
-                    <h4 className="text-xs font-bold text-teal-900 flex items-center gap-1">
-                      <Edit3 className="w-3.5 h-3.5 text-teal-600" /> মজুত ও পাতার সংখ্যা এডিট করুন
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 bg-teal-50/50 dark:bg-teal-950/40 p-4 rounded-xl space-y-3 transition-colors">
+                    <h4 className="text-xs font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1">
+                      <Edit3 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" /> মজুত ও পাতার সংখ্যা এডিট করুন
                     </h4>
 
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           কয় পাতা আছে:
                         </label>
                         <div className="flex items-center">
                           <button
                             type="button"
                             onClick={() => setEditStrips(Math.max(0, editStrips - 1))}
-                            className="p-1.5 rounded-l-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                            className="p-1.5 rounded-l-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
@@ -375,12 +375,12 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                             min="0"
                             value={editStrips}
                             onChange={(e) => setEditStrips(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full text-center py-1 bg-white border-y border-slate-200 text-xs font-bold"
+                            className="w-full text-center py-1 bg-white dark:bg-slate-800 border-y border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold"
                           />
                           <button
                             type="button"
                             onClick={() => setEditStrips(editStrips + 1)}
-                            className="p-1.5 rounded-r-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                            className="p-1.5 rounded-r-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -388,14 +388,14 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           খুচরা কয়টি আছে:
                         </label>
                         <div className="flex items-center">
                           <button
                             type="button"
                             onClick={() => setEditLoose(Math.max(0, editLoose - 1))}
-                            className="p-1.5 rounded-l-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                            className="p-1.5 rounded-l-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
@@ -404,12 +404,12 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                             min="0"
                             value={editLoose}
                             onChange={(e) => setEditLoose(Math.max(0, parseInt(e.target.value) || 0))}
-                            className="w-full text-center py-1 bg-white border-y border-slate-200 text-xs font-bold"
+                            className="w-full text-center py-1 bg-white dark:bg-slate-800 border-y border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white text-xs font-bold"
                           />
                           <button
                             type="button"
                             onClick={() => setEditLoose(editLoose + 1)}
-                            className="p-1.5 rounded-r-lg bg-slate-200 hover:bg-slate-300 text-slate-700 cursor-pointer"
+                            className="p-1.5 rounded-r-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 cursor-pointer"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
@@ -417,7 +417,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           প্রতি পাতায় কয়টি:
                         </label>
                         <input
@@ -425,12 +425,12 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                           min="1"
                           value={editPerStrip}
                           onChange={(e) => setEditPerStrip(Math.max(1, parseInt(e.target.value) || 10))}
-                          className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                          className="w-full px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white text-center"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                        <label className="block text-[11px] font-semibold text-slate-700 dark:text-slate-300 mb-1">
                           সতর্কবার্তা থ্রেশহোল্ড:
                         </label>
                         <input
@@ -438,7 +438,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                           min="1"
                           value={editThreshold}
                           onChange={(e) => setEditThreshold(Math.max(1, parseInt(e.target.value) || 5))}
-                          className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-bold text-center"
+                          className="w-full px-2.5 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white text-center"
                         />
                       </div>
                     </div>
@@ -448,7 +448,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                         id={`cancel-edit-stock-${med.id}`}
                         type="button"
                         onClick={() => setEditingStockMedId(null)}
-                        className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 rounded-lg cursor-pointer"
+                        className="px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
                       >
                         বাতিল
                       </button>

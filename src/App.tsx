@@ -24,19 +24,15 @@ export default function App() {
   // Navigation: schedule, medicines, stock, prescriptions
   const [activeTab, setActiveTab] = useState<"schedule" | "medicines" | "stock" | "prescriptions">("schedule");
 
-  // Theme state (Light / Dark mode)
+  // Theme state (Default to Dark mode as requested)
   const [theme, setTheme] = useState<"light" | "dark">(() => {
     try {
       const saved = localStorage.getItem("med_tracker_theme");
       if (saved === "dark" || saved === "light") return saved;
-      // Default to light, but respect system preference if set
-      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-        return "dark";
-      }
     } catch (e) {
       console.warn("Theme read error", e);
     }
-    return "light";
+    return "dark";
   });
 
   // Sound enabled state
