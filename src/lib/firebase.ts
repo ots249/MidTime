@@ -1,12 +1,13 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
+  initializeFirestore,
   getFirestore,
   doc,
   collection,
   setDoc,
   deleteDoc,
+  getDoc,
   getDocs,
-  getDocFromServer,
   onSnapshot,
   query,
   writeBatch
@@ -23,11 +24,40 @@ import {
 import firebaseConfig from "../../firebase-applet-config.json";
 import { Medicine, IntakeLog, PrescriptionRecord, AlertSettings } from "../types";
 
-// Initialize Firebase App
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// Load configuration with priority to runtime environment variables (for Vercel/custom hosting)
+// falling back to the project configuration file.
+const env = (import.meta as any).env || {};
+const activeConfig = {
+  apiKey: (env.VITE_FIREBASE_API_KEY as string) || firebaseConfig.apiKey,
+  authDomain: (env.VITE_FIREBASE_AUTH_DOMAIN as string) || firebaseConfig.authDomain,
+  projectId: (env.VITE_FIREBASE_PROJECT_ID as string) || firebaseConfig.projectId,
+  storageBucket: (env.VITE_FIREBASE_STORAGE_BUCKET as string) || firebaseConfig.storageBucket,
+  messagingSenderId: (env.VITE_FIREBASE_MESSAGING_SENDER_ID as string) || firebaseConfig.messagingSenderId,
+  appId: (env.VITE_FIREBASE_APP_ID as string) || firebaseConfig.appId,
+  firestoreDatabaseId: (env.VITE_FIREBASE_DATABASE_ID as string) || firebaseConfig.firestoreDatabaseId || "(default)"
+};
 
-// Initialize Firestore with custom database ID
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Initialize Firebase App
+const app = !getApps().length ? initializeApp(activeConfig) : getApp();
+
+// Initialize Firestore with robust connection settings (auto-fallback to long-polling in iframes/proxies)
+export const db = (() => {
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalAutoDetectLongPolling: true,
+        ignoreUndefinedProperties: true
+      },
+      activeConfig.firestoreDatabaseId === "(default)" ? undefined : activeConfig.firestoreDatabaseId
+    );
+  } catch {
+    return getFirestore(
+      app,
+      activeConfig.firestoreDatabaseId === "(default)" ? undefined : activeConfig.firestoreDatabaseId
+    );
+  }
+})();
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -85,15 +115,18 @@ export function handleFirestoreError(
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Connection test
+// Connection test with offline-first tolerance
 export async function testConnection(): Promise<boolean> {
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return false;
+  }
   try {
-    await getDocFromServer(doc(db, "test", "connection"));
+    const docRef = doc(db, "test", "connection");
+    await getDoc(docRef);
     return true;
   } catch (error: any) {
-    if (error?.message?.includes("the client is offline")) {
-      console.warn("Firestore client is offline, working with cached/local data.");
-    }
+    // Normal in offline or during initial connection handshake
+    console.debug("Firestore offline status (operating in local cache mode):", error?.message || error);
     return false;
   }
 }
