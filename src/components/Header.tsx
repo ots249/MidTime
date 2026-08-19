@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { User } from "firebase/auth";
+import { CloudSyncStatus } from "../types";
 import {
   Pill,
   Calendar,
@@ -15,7 +17,11 @@ import {
   Moon,
   Sun,
   DownloadCloud,
-  CheckCircle2
+  CheckCircle2,
+  Cloud,
+  CloudCheck,
+  CloudOff,
+  Database
 } from "lucide-react";
 import { getBanglaDate, toBanglaNumber } from "../utils/banglaUtils";
 import { soundManager } from "../utils/sound";
@@ -26,6 +32,9 @@ interface HeaderProps {
   setActiveTab: (tab: "schedule" | "medicines" | "stock" | "prescriptions") => void;
   onOpenAddModal: () => void;
   onOpenSettings: () => void;
+  onOpenCloudSync: () => void;
+  user: User | null;
+  syncStatus: CloudSyncStatus;
   theme: "light" | "dark";
   onToggleTheme: () => void;
   lowStockCount: number;
@@ -38,6 +47,9 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onOpenAddModal,
   onOpenSettings,
+  onOpenCloudSync,
+  user,
+  syncStatus,
   theme,
   onToggleTheme,
   lowStockCount,
@@ -153,6 +165,45 @@ export const Header: React.FC<HeaderProps> = ({
                 <span className="hidden sm:inline">অ্যাপ ইনস্টল</span>
               </button>
             )}
+
+            {/* Cloud Database Sync Status / Profile Button */}
+            <button
+              id="header-cloud-sync-btn"
+              type="button"
+              onClick={onOpenCloudSync}
+              title={
+                user
+                  ? `ক্লাউড ডাটাবেস কানেক্টেড (${user.displayName || user.email || "গেস্ট"})`
+                  : "ক্লাউড ডাটাবেস ব্যাকআপ ও লগইন"
+              }
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border flex items-center gap-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                user
+                  ? "bg-teal-50 dark:bg-teal-950/70 border-teal-200 dark:border-teal-800 text-teal-800 dark:text-teal-300"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+              }`}
+            >
+              {user ? (
+                user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName || "User"}
+                    className="w-5 h-5 rounded-full border border-teal-400"
+                  />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-teal-600 text-white font-bold text-[10px] flex items-center justify-center">
+                    {user.displayName ? user.displayName.charAt(0).toUpperCase() : "U"}
+                  </div>
+                )
+              ) : (
+                <Database className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+              )}
+              <span className="hidden sm:inline">
+                {user ? (syncStatus === "syncing" ? "সিঙ্ক হচ্ছে..." : "ক্লাউড সেভ ✓") : "ক্লাউড সেভ"}
+              </span>
+              {user && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse hidden sm:inline-block" />
+              )}
+            </button>
 
             {/* Quick Theme Toggle */}
             <button

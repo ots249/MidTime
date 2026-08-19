@@ -1,0 +1,99 @@
+{
+  "entities": {
+    "Medicine": {
+      "title": "Medicine",
+      "description": "Medicine details, schedule, stock and strip tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 200 },
+        "generic": { "type": "string", "maxLength": 200 },
+        "strength": { "type": "string", "maxLength": 100 },
+        "form": { "type": "string", "maxLength": 100 },
+        "company": { "type": "string", "maxLength": 200 },
+        "unitPerStrip": { "type": "number" },
+        "currentStrips": { "type": "number" },
+        "currentLooseUnits": { "type": "number" },
+        "totalUnits": { "type": "number" },
+        "minThresholdUnits": { "type": "number" },
+        "unitPrice": { "type": "number" },
+        "times": { "type": "array" },
+        "mealRelation": { "type": "string", "maxLength": 100 },
+        "instructions": { "type": "string", "maxLength": 500 },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 },
+        "userId": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "name", "userId"]
+    },
+    "IntakeLog": {
+      "title": "IntakeLog",
+      "description": "Daily medicine intake tracking record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "medicineId": { "type": "string", "maxLength": 128 },
+        "medicineName": { "type": "string", "maxLength": 200 },
+        "scheduledTime": { "type": "string", "maxLength": 50 },
+        "actualTime": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["taken", "skipped", "missed"] },
+        "date": { "type": "string", "maxLength": 20 },
+        "unitsTaken": { "type": "number" },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "medicineId", "medicineName", "status", "date", "userId"]
+    },
+    "Prescription": {
+      "title": "Prescription",
+      "description": "Scanned doctor prescription record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "doctorName": { "type": "string", "maxLength": 200 },
+        "hospitalName": { "type": "string", "maxLength": 200 },
+        "prescriptionDate": { "type": "string", "maxLength": 50 },
+        "medicines": { "type": "array" },
+        "advice": { "type": "string", "maxLength": 2000 },
+        "rawText": { "type": "string", "maxLength": 5000 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "userId"]
+    },
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences and alert configurations",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "soundAlerts": { "type": "boolean" },
+        "voiceAlerts": { "type": "boolean" },
+        "bannerNotifications": { "type": "boolean" },
+        "reminderMinutesBefore": { "type": "number" },
+        "theme": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/medicines/{medicineId}": {
+      "schema": "Medicine",
+      "description": "User's personal medicine inventory, stock and schedule"
+    },
+    "/users/{userId}/logs/{logId}": {
+      "schema": "IntakeLog",
+      "description": "Daily dose intake logs and history"
+    },
+    "/users/{userId}/prescriptions/{prescriptionId}": {
+      "schema": "Prescription",
+      "description": "Scanned prescriptions linked to the user account"
+    },
+    "/users/{userId}/settings/{settingId}": {
+      "schema": "UserSettings",
+      "description": "User preference configurations"
+    }
+  }
+}

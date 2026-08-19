@@ -102,5 +102,32 @@ export interface BackupData {
   theme?: "light" | "dark";
 }
 
+export interface AlertSettings {
+  soundEnabled: boolean;
+  voiceAlerts?: boolean;
+  bannerNotifications?: boolean;
+  reminderMinutesBefore?: number;
+  theme?: "light" | "dark";
+}
+
+export interface IntakeLog {
+  id: string;
+  medicineId: string;
+  medicineName: string;
+  scheduledTime?: string;
+  actualTime?: string;
+  status: "taken" | "skipped" | "missed";
+  date: string;
+  slot?: TimeSlot;
+  unitsTaken?: number;
+  userId?: string;
+  createdAt?: string;
+}
+
+export type PrescriptionRecord = Prescription;
+
+export type CloudSyncStatus = "connected" | "syncing" | "synced" | "offline" | "error";
+
 export const DEFAULT_SAMPLE_MEDICINES: Medicine[] = [];
+
 

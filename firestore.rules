@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // Health check doc for SDK testConnection
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // User Subcollections
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Medicines Subcollection
+      match /medicines/{medicineId} {
+        allow read, write: if isOwner(userId) && isValidId(medicineId);
+      }
+
+      // Daily Logs Subcollection
+      match /logs/{logId} {
+        allow read, write: if isOwner(userId) && isValidId(logId);
+      }
+
+      // Prescriptions Subcollection
+      match /prescriptions/{prescriptionId} {
+        allow read, write: if isOwner(userId) && isValidId(prescriptionId);
+      }
+
+      // User Settings Subcollection
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId) && isValidId(settingId);
+      }
+    }
+  }
+}

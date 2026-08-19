@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { User } from "firebase/auth";
 import {
   X,
   Moon,
@@ -17,7 +18,11 @@ import {
   Info,
   DownloadCloud,
   Share2,
-  Sparkles
+  Sparkles,
+  Database,
+  Cloud,
+  CloudCheck,
+  CloudOff
 } from "lucide-react";
 import { Medicine, DailyLog, Prescription, BackupData } from "../types";
 import { toBanglaNumber, getBanglaDate } from "../utils/banglaUtils";
@@ -27,6 +32,8 @@ import { subscribeToInstallPrompt, promptPwaInstall, isRunningStandalone } from 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  user: User | null;
+  onOpenCloudSync: () => void;
   theme: "light" | "dark";
   onToggleTheme: () => void;
   soundEnabled: boolean;
@@ -42,6 +49,8 @@ interface SettingsModalProps {
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
+  user,
+  onOpenCloudSync,
   theme,
   onToggleTheme,
   soundEnabled,
@@ -268,6 +277,49 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Cloud Database & Sync Section */}
+          <div className="bg-gradient-to-br from-indigo-500/10 via-teal-500/5 to-emerald-500/10 dark:from-indigo-950/40 dark:via-teal-950/20 dark:to-emerald-950/40 p-4 rounded-2xl border border-indigo-200/80 dark:border-indigo-800/60 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-teal-600 dark:bg-teal-500 text-white shadow-xs">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">
+                      ক্লাউড ডাটাবেস (Firebase Cloud Sync)
+                    </h3>
+                    {user ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                        সংযুক্ত ✓
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300">
+                        লোকাল মোড
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    {user
+                      ? `লগইন অ্যাকাউন্ট: ${user.displayName || user.email || "গেস্ট ইউজার"}`
+                      : "ডাটাবেস কানেক্ট করলে যেকোনো ডিভাইস থেকে ওষুধ ও প্রেসক্রিপশন পাবেন"}
+                  </p>
+                </div>
+              </div>
+              <button
+                id="settings-cloud-sync-modal-btn"
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenCloudSync();
+                }}
+                className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-95 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
+              >
+                {user ? "ম্যানেজ করুন" : "কানেক্ট করুন"}
+              </button>
+            </div>
           </div>
 
           {/* Section 1: Appearance / Theme */}

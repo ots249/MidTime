@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
+import { User } from "firebase/auth";
 import { Header } from "./components/Header";
 import { LowStockBanner } from "./components/LowStockBanner";
 import { ScheduleView } from "./components/ScheduleView";
@@ -9,20 +10,42 @@ import { PrescriptionView } from "./components/PrescriptionView";
 import { AddMedicineModal } from "./components/AddMedicineModal";
 import { MedicineDetailModal } from "./components/MedicineDetailModal";
 import { SettingsModal } from "./components/SettingsModal";
+import { CloudSyncModal } from "./components/CloudSyncModal";
 import {
   Medicine,
   Prescription,
   DailyLog,
   TimeSlot,
   BackupData,
+  CloudSyncStatus,
   DEFAULT_SAMPLE_MEDICINES
 } from "./types";
 import { soundManager } from "./utils/sound";
 import { calculateRemainingStrips } from "./utils/banglaUtils";
+import {
+  testConnection,
+  subscribeAuth,
+  syncMedicineToCloud,
+  removeMedicineFromCloud,
+  syncLogToCloud,
+  syncPrescriptionToCloud,
+  removePrescriptionFromCloud,
+  syncSettingsToCloud,
+  backupAllToCloud,
+  listenToUserMedicines,
+  listenToUserLogs,
+  listenToUserPrescriptions
+} from "./lib/firebase";
 
 export default function App() {
   // Navigation: schedule, medicines, stock, prescriptions
   const [activeTab, setActiveTab] = useState<"schedule" | "medicines" | "stock" | "prescriptions">("schedule");
+
+  // Firebase Auth & Cloud Sync State
+  const [user, setUser] = useState<User | null>(null);
+  const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>("offline");
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [isCloudSyncOpen, setIsCloudSyncOpen] = useState(false);
 
   // Theme state (Default to Dark mode as requested)
   const [theme, setTheme] = useState<"light" | "dark">(() => {
@@ -83,7 +106,7 @@ export default function App() {
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage((curr) => (curr === msg ? null : curr));
-    }, 3000);
+    }, 3500);
   };
 
   // State: Daily Logs (Date -> MedicineId -> { morning, afternoon, night })
@@ -118,7 +141,75 @@ export default function App() {
   const todayKey = new Date().toISOString().split("T")[0];
   const todayLogs = dailyLogs[todayKey] || {};
 
-  // Save changes to LocalStorage
+  // Verify Firestore connection on startup
+  useEffect(() => {
+    testConnection().then((connected) => {
+      if (connected) {
+        setSyncStatus(user ? "synced" : "connected");
+      }
+    });
+  }, []);
+
+  // Subscribe to Firebase Auth changes
+  useEffect(() => {
+    const unsubscribe = subscribeAuth((currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        setSyncStatus("synced");
+        setLastSyncTime(new Date().toLocaleTimeString());
+      } else {
+        setSyncStatus("offline");
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Firestore Listeners when authenticated
+  useEffect(() => {
+    if (!user) return;
+
+    setSyncStatus("syncing");
+
+    // Listen to medicines
+    const unsubMeds = listenToUserMedicines(
+      user.uid,
+      (cloudMeds) => {
+        if (cloudMeds && cloudMeds.length > 0) {
+          setMedicines(cloudMeds);
+        } else if (medicines.length > 0) {
+          // If cloud has no medicines but local does, backup to cloud
+          backupAllToCloud(user.uid, medicines, [], prescriptions, {
+            soundEnabled,
+            theme
+          }).catch((err) => console.warn("Auto-sync initial backup error:", err));
+        }
+        setSyncStatus("synced");
+        setLastSyncTime(new Date().toLocaleTimeString());
+      },
+      (err) => {
+        console.warn("Meds listener error", err);
+        setSyncStatus("error");
+      }
+    );
+
+    // Listen to prescriptions
+    const unsubPres = listenToUserPrescriptions(
+      user.uid,
+      (cloudPres) => {
+        if (cloudPres && cloudPres.length > 0) {
+          setPrescriptions(cloudPres);
+        }
+      },
+      (err) => console.warn("Prescriptions listener warning", err)
+    );
+
+    return () => {
+      unsubMeds();
+      unsubPres();
+    };
+  }, [user?.uid]);
+
+  // Save changes to LocalStorage as offline fallback
   useEffect(() => {
     try {
       localStorage.setItem("med_tracker_medicines", JSON.stringify(medicines));
@@ -143,31 +234,70 @@ export default function App() {
     }
   }, [prescriptions]);
 
+  // Manual Force Cloud Backup
+  const handleManualSyncToCloud = async () => {
+    if (!user) return;
+    setSyncStatus("syncing");
+    try {
+      await backupAllToCloud(user.uid, medicines, [], prescriptions, {
+        soundEnabled,
+        theme
+      });
+      setSyncStatus("synced");
+      setLastSyncTime(new Date().toLocaleTimeString());
+    } catch (error) {
+      setSyncStatus("error");
+      throw error;
+    }
+  };
+
   // Restore data from Backup JSON
   const handleRestoreBackup = (backup: BackupData, mode: "replace" | "merge") => {
     if (mode === "replace") {
-      setMedicines(backup.medicines || []);
-      setDailyLogs(backup.dailyLogs || {});
-      setPrescriptions(backup.prescriptions || []);
+      const newMeds = backup.medicines || [];
+      const newLogs = backup.dailyLogs || {};
+      const newPres = backup.prescriptions || [];
+      setMedicines(newMeds);
+      setDailyLogs(newLogs);
+      setPrescriptions(newPres);
       if (backup.theme) {
         setTheme(backup.theme);
       }
+      if (user) {
+        backupAllToCloud(user.uid, newMeds, [], newPres, {
+          soundEnabled,
+          theme: backup.theme || theme
+        }).catch((e) => console.warn("Restore cloud sync warning:", e));
+      }
     } else {
       // Merge mode
+      let mergedMeds: Medicine[] = [];
       setMedicines((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
         const newMeds = (backup.medicines || []).filter((m) => !existingIds.has(m.id));
-        return [...prev, ...newMeds];
+        mergedMeds = [...prev, ...newMeds];
+        return mergedMeds;
       });
       setDailyLogs((prev) => ({
         ...prev,
         ...(backup.dailyLogs || {})
       }));
+      let mergedPres: Prescription[] = [];
       setPrescriptions((prev) => {
         const existingIds = new Set(prev.map((p) => p.id));
         const newPres = (backup.prescriptions || []).filter((p) => !existingIds.has(p.id));
-        return [...prev, ...newPres];
+        mergedPres = [...prev, ...newPres];
+        return mergedPres;
       });
+
+      if (user) {
+        setTimeout(() => {
+          backupAllToCloud(user.uid, mergedMeds, [], mergedPres, {
+            soundEnabled,
+            theme
+          }).catch((e) => console.warn("Merge cloud sync warning:", e));
+        }, 300);
+      }
     }
   };
 
@@ -182,6 +312,11 @@ export default function App() {
       localStorage.removeItem("med_tracker_prescriptions");
     } catch (e) {
       console.warn("Error clearing local storage", e);
+    }
+    if (user) {
+      backupAllToCloud(user.uid, [], [], [], { soundEnabled, theme }).catch((e) =>
+        console.warn("Cloud clear warning:", e)
+      );
     }
   };
 
@@ -221,6 +356,7 @@ export default function App() {
     });
 
     // Update Medicine Stock count
+    let updatedMed: Medicine | null = null;
     setMedicines((prev) =>
       prev.map((item) => {
         if (item.id !== medicineId) return item;
@@ -229,14 +365,14 @@ export default function App() {
         const perStrip = item.stock.tabletsPerStrip || 10;
 
         // If taking, reduce total units; if untaking, restore total units
-        let newTotal = willBeTaken
+        const newTotal = willBeTaken
           ? Math.max(0, currentTotal - doseAmount)
           : currentTotal + doseAmount;
 
         const newStrips = Math.floor(newTotal / perStrip);
         const newLoose = newTotal % perStrip;
 
-        return {
+        updatedMed = {
           ...item,
           stock: {
             ...item.stock,
@@ -245,8 +381,25 @@ export default function App() {
             looseTablets: newLoose
           }
         };
+        return updatedMed;
       })
     );
+
+    // Sync medicine stock to Cloud
+    if (user && updatedMed) {
+      syncMedicineToCloud(user.uid, updatedMed).catch((e) =>
+        console.warn("Stock cloud sync warning:", e)
+      );
+      syncLogToCloud(user.uid, {
+        id: `log-${todayKey}-${medicineId}-${slot}`,
+        medicineId,
+        medicineName: med.name,
+        status: willBeTaken ? "taken" : "missed",
+        date: todayKey,
+        slot,
+        unitsTaken: willBeTaken ? doseAmount : 0
+      }).catch((e) => console.warn("Log cloud sync warning:", e));
+    }
 
     // Play Sound & Check for celebration
     if (willBeTaken) {
@@ -305,6 +458,13 @@ export default function App() {
       showToast(`"${savedMed.name}" নতুন ওষুধ হিসেবে যুক্ত হয়েছে!`);
       return [savedMed, ...prev];
     });
+
+    if (user) {
+      syncMedicineToCloud(user.uid, savedMed).catch((e) =>
+        console.warn("Medicine cloud save warning:", e)
+      );
+    }
+
     setEditingMedicine(null);
     soundManager.playTakeMedicineSound();
   };
@@ -317,6 +477,13 @@ export default function App() {
     if (selectedDetailMed?.id === medicineId) {
       setSelectedDetailMed(null);
     }
+
+    if (user) {
+      removeMedicineFromCloud(user.uid, medicineId).catch((e) =>
+        console.warn("Medicine cloud delete warning:", e)
+      );
+    }
+
     showToast(`"${medName}" তালিকা থেকে মুছে ফেলা হয়েছে।`);
   };
 
@@ -330,11 +497,12 @@ export default function App() {
       lowStockThreshold: number;
     }
   ) => {
+    let updatedMed: Medicine | null = null;
     setMedicines((prev) =>
       prev.map((m) => {
         if (m.id !== medicineId) return m;
         const total = newStock.stripsCount * newStock.tabletsPerStrip + newStock.looseTablets;
-        return {
+        updatedMed = {
           ...m,
           stock: {
             ...m.stock,
@@ -342,14 +510,24 @@ export default function App() {
             totalUnits: total
           }
         };
+        return updatedMed;
       })
     );
+
+    if (user && updatedMed) {
+      syncMedicineToCloud(user.uid, updatedMed).catch((e) =>
+        console.warn("Stock update cloud sync warning:", e)
+      );
+    }
+
     showToast("মজুত সফলভাবে আপডেট হয়েছে!");
   };
 
   // Quick Refill +X Strips
   const handleQuickAddStrips = (medicineId: string, stripsToAdd: number) => {
     const med = medicines.find((m) => m.id === medicineId);
+    let updatedMed: Medicine | null = null;
+
     setMedicines((prev) =>
       prev.map((m) => {
         if (m.id !== medicineId) return m;
@@ -358,7 +536,7 @@ export default function App() {
         const loose = m.stock.looseTablets || 0;
         const newTotal = newStrips * perStrip + loose;
 
-        return {
+        updatedMed = {
           ...m,
           stock: {
             ...m.stock,
@@ -366,8 +544,16 @@ export default function App() {
             totalUnits: newTotal
           }
         };
+        return updatedMed;
       })
     );
+
+    if (user && updatedMed) {
+      syncMedicineToCloud(user.uid, updatedMed).catch((e) =>
+        console.warn("Refill cloud sync warning:", e)
+      );
+    }
+
     showToast(`"${med?.name || 'ওষুধ'}" এ +${stripsToAdd} পাতা যোগ করা হয়েছে!`);
     soundManager.playTakeMedicineSound();
   };
@@ -417,6 +603,15 @@ export default function App() {
     });
 
     setMedicines((prev) => [...newMedicines, ...prev]);
+
+    if (user) {
+      newMedicines.forEach((m) => {
+        syncMedicineToCloud(user.uid, m).catch((e) =>
+          console.warn("Import med cloud sync warning:", e)
+        );
+      });
+    }
+
     setActiveTab("medicines");
     showToast(`প্রেসক্রিপশন থেকে ${newMedicines.length} টি ওষুধ যুক্ত হয়েছে!`);
     soundManager.playTakeMedicineSound();
@@ -438,6 +633,9 @@ export default function App() {
           setIsAddModalOpen(true);
         }}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenCloudSync={() => setIsCloudSyncOpen(true)}
+        user={user}
+        syncStatus={syncStatus}
         theme={theme}
         onToggleTheme={toggleTheme}
         lowStockCount={lowStockCount}
@@ -509,12 +707,22 @@ export default function App() {
         {activeTab === "prescriptions" && (
           <PrescriptionView
             prescriptions={prescriptions}
-            onSavePrescription={(pres) =>
-              setPrescriptions((prev) => [pres, ...prev])
-            }
-            onDeletePrescription={(id) =>
-              setPrescriptions((prev) => prev.filter((p) => p.id !== id))
-            }
+            onSavePrescription={(pres) => {
+              setPrescriptions((prev) => [pres, ...prev]);
+              if (user) {
+                syncPrescriptionToCloud(user.uid, pres).catch((e) =>
+                  console.warn("Prescription cloud save warning:", e)
+                );
+              }
+            }}
+            onDeletePrescription={(id) => {
+              setPrescriptions((prev) => prev.filter((p) => p.id !== id));
+              if (user) {
+                removePrescriptionFromCloud(user.uid, id).catch((e) =>
+                  console.warn("Prescription cloud delete warning:", e)
+                );
+              }
+            }}
             onImportMedicinesFromPrescription={handleImportMedicinesFromPrescription}
           />
         )}
@@ -524,6 +732,8 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
+        user={user}
+        onOpenCloudSync={() => setIsCloudSyncOpen(true)}
         theme={theme}
         onToggleTheme={toggleTheme}
         soundEnabled={soundEnabled}
@@ -534,6 +744,22 @@ export default function App() {
         onRestoreBackup={handleRestoreBackup}
         onClearAllData={handleClearAllData}
         onShowToast={showToast}
+      />
+
+      {/* Cloud Sync / Database Modal */}
+      <CloudSyncModal
+        isOpen={isCloudSyncOpen}
+        onClose={() => setIsCloudSyncOpen(false)}
+        user={user}
+        syncStatus={syncStatus}
+        lastSyncTime={lastSyncTime}
+        medicines={medicines}
+        dailyLogs={dailyLogs}
+        prescriptions={prescriptions}
+        soundEnabled={soundEnabled}
+        theme={theme}
+        onShowToast={showToast}
+        onManualSyncToCloud={handleManualSyncToCloud}
       />
 
       {/* Add / Edit Medicine Modal */}
@@ -563,3 +789,4 @@ export default function App() {
     </div>
   );
 }
+
