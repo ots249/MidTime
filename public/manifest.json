@@ -1,0 +1,70 @@
+{
+  "name": "MidTime - মেডিসিন ও প্রেসক্রিপশন ট্র্যাকার",
+  "short_name": "MidTime",
+  "description": "সকাল, দুপুর ও রাতের ওষুধের সূচি, পাতা ও ট্যাবলেটের মজুত হিসাব ও সতর্কতা এবং প্রেসক্রিপশন ম্যানেজার।",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "background_color": "#0f172a",
+  "theme_color": "#0d9488",
+  "orientation": "portrait-primary",
+  "lang": "bn",
+  "categories": ["medical", "health", "lifestyle", "utilities"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "আজকের ওষুধের সূচি",
+      "short_name": "সূচি",
+      "description": "সকাল, দুপুর ও রাতের ওষুধ গ্রহণের তালিকা দেখুন",
+      "url": "/?tab=schedule",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "নতুন ওষুধ যোগ করুন",
+      "short_name": "ওষুধ যোগ",
+      "description": "নতুন ওষুধের নাম ও সময়সূচি যুক্ত করুন",
+      "url": "/?action=add_med",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "মজুত ও পাতা ট্র্যাকার",
+      "short_name": "মজুত",
+      "description": "কত পাতা ওষুধ অবশিষ্ট আছে হিসাব দেখুন",
+      "url": "/?tab=stock",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "প্রেসক্রিপশন স্ক্যানার",
+      "short_name": "প্রেসক্রিপশন",
+      "description": "প্রেসক্রিপশন ছবি আপলোড ও এআই দিয়ে স্ক্যান করুন",
+      "url": "/?tab=prescriptions",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}

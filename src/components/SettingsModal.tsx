@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Moon,
@@ -14,11 +14,15 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
-  Info
+  Info,
+  DownloadCloud,
+  Share2,
+  Sparkles
 } from "lucide-react";
 import { Medicine, DailyLog, Prescription, BackupData } from "../types";
 import { toBanglaNumber, getBanglaDate } from "../utils/banglaUtils";
 import { soundManager } from "../utils/sound";
+import { subscribeToInstallPrompt, promptPwaInstall, isRunningStandalone } from "../utils/pwa";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -52,9 +56,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [confirmClear, setConfirmClear] = useState(false);
   const [importPreview, setImportPreview] = useState<BackupData | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    setIsStandalone(isRunningStandalone());
+    const unsubscribe = subscribeToInstallPrompt((canInstall) => {
+      setCanInstallPwa(canInstall);
+    });
+    return () => unsubscribe();
+  }, []);
+
   if (!isOpen) return null;
+
+  const handleInstallClick = async () => {
+    const installed = await promptPwaInstall();
+    if (installed) {
+      onShowToast("MidTime অ্যাপটি ইনস্টল করা হয়েছে!");
+      if (soundEnabled) soundManager.playTakeMedicineSound();
+    }
+  };
 
   // Export JSON file
   const handleExportJSON = () => {
@@ -185,7 +207,69 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <div className="p-4 sm:p-6 overflow-y-auto space-y-6 text-slate-800 dark:text-slate-200">
+        <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-slate-800 dark:text-slate-200">
+          {/* PWA App Install Section */}
+          <div className="bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-indigo-500/10 dark:from-teal-950/40 dark:via-emerald-950/20 dark:to-indigo-950/40 p-4 rounded-2xl border border-teal-200/80 dark:border-teal-800/60 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-xs border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 p-0.5 shrink-0 flex items-center justify-center">
+                <img
+                  src="/icon.svg"
+                  alt="MidTime Logo"
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.src = "/icon-192.png";
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white truncate">
+                    MidTime Progressive Web App
+                  </h3>
+                  {isStandalone ? (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300">
+                      ইনস্টলড ✓
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-300">
+                      PWA
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+                  ইন্টারনেট ছাড়াও অফলাইনে সরাসরি মোবাইলের হোম স্ক্রিন থেকে ব্যবহার করুন
+                </p>
+              </div>
+            </div>
+
+            {canInstallPwa && (
+              <button
+                id="install-pwa-modal-btn"
+                type="button"
+                onClick={handleInstallClick}
+                className="w-full py-2.5 px-4 rounded-xl bg-teal-600 hover:bg-teal-700 active:scale-98 text-white font-bold text-xs sm:text-sm shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                <DownloadCloud className="w-4 h-4" />
+                <span>ফোনে অ্যাপ হিসেবে ইনস্টল করুন (Install App)</span>
+              </button>
+            )}
+
+            {!canInstallPwa && !isStandalone && (
+              <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-teal-100 dark:border-teal-900/50 text-[11px] text-slate-600 dark:text-slate-400 space-y-1">
+                <p className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                  <Smartphone className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                  <span>মোবাইলে ইনস্টল করার নিয়ম:</span>
+                </p>
+                <p className="leading-relaxed">
+                  • <strong>Android Chrome:</strong> ব্রাউজারের উপরে ৩-ডট (⋮) মেন্যু থেকে <em>"Add to Home screen"</em> বা <em>"Install app"</em> চাপুন।
+                </p>
+                <p className="leading-relaxed">
+                  • <strong>iPhone Safari:</strong> নিচে শেয়ার (Share <Share2 className="w-3 h-3 inline" />) বোতামে ট্যাপ করে <em>"Add to Home Screen"</em> সিলেক্ট করুন।
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Section 1: Appearance / Theme */}
           <div className="bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-700/60">
             <div className="flex items-center justify-between">

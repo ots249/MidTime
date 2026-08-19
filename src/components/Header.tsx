@@ -13,10 +13,13 @@ import {
   ListFilter,
   Settings,
   Moon,
-  Sun
+  Sun,
+  DownloadCloud,
+  CheckCircle2
 } from "lucide-react";
 import { getBanglaDate, toBanglaNumber } from "../utils/banglaUtils";
 import { soundManager } from "../utils/sound";
+import { subscribeToInstallPrompt, promptPwaInstall, isRunningStandalone } from "../utils/pwa";
 
 interface HeaderProps {
   activeTab: "schedule" | "medicines" | "stock" | "prescriptions";
@@ -43,6 +46,16 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const [soundOn, setSoundOn] = useState(true);
   const [currentTimeStr, setCurrentTimeStr] = useState("");
+  const [canInstallPwa, setCanInstallPwa] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    setIsStandalone(isRunningStandalone());
+    const unsubscribe = subscribeToInstallPrompt((canInstall) => {
+      setCanInstallPwa(canInstall);
+    });
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -69,6 +82,13 @@ export const Header: React.FC<HeaderProps> = ({
     if (next) soundManager.playTakeMedicineSound();
   };
 
+  const handleInstallClick = async () => {
+    const installed = await promptPwaInstall();
+    if (installed) {
+      soundManager.playTakeMedicineSound();
+    }
+  };
+
   const totalAlerts = lowStockCount + outOfStockCount;
 
   return (
@@ -76,17 +96,31 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Top Banner / Brand */}
       <div className="max-w-5xl mx-auto px-3 sm:px-6 pt-3 pb-2">
         <div className="flex items-center justify-between gap-2">
-          {/* Logo & Title */}
+          {/* Logo & Title with MidTime branding */}
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 text-white flex items-center justify-center shadow-sm shadow-emerald-500/20 shrink-0">
-              <Pill className="w-5 h-5" />
+            <div className="relative w-10 h-10 rounded-2xl overflow-hidden shadow-xs border border-teal-100 dark:border-teal-900/50 bg-white dark:bg-slate-800 shrink-0 flex items-center justify-center p-0.5">
+              <img
+                src="/icon.svg"
+                alt="MidTime Logo"
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  // fallback to icon-192.png or SVG if needed
+                  const target = e.currentTarget;
+                  if (!target.src.includes("icon-192.png")) {
+                    target.src = "/icon-192.png";
+                  }
+                }}
+              />
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-1">
-                  মেডিসিন ট্র্যাকার
+                <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-1">
+                  <span className="text-teal-600 dark:text-teal-400">Mid</span>Time
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400 hidden xs:inline ml-1">
+                    (মেডিসিন ট্র্যাকার)
+                  </span>
                 </h1>
-                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
+                <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300">
                   <Sparkles className="w-3 h-3 mr-1" /> স্মার্ট সূচি ও স্টক
                 </span>
               </div>
@@ -106,6 +140,20 @@ export const Header: React.FC<HeaderProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* PWA Install Button if installable */}
+            {canInstallPwa && (
+              <button
+                id="header-pwa-install-btn"
+                type="button"
+                onClick={handleInstallClick}
+                title="ফোনে বা কম্পিউটারে MidTime অ্যাপ ইনস্টল করুন"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/70 hover:bg-indigo-100 dark:hover:bg-indigo-900/70 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold transition-all cursor-pointer animate-pulse"
+              >
+                <DownloadCloud className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="hidden sm:inline">অ্যাপ ইনস্টল</span>
+              </button>
+            )}
+
             {/* Quick Theme Toggle */}
             <button
               id="header-toggle-theme-btn"

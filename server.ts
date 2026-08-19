@@ -12,6 +12,16 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+// Explicitly serve public files with correct Service-Worker-Allowed headers
+app.use(express.static(path.join(process.cwd(), "public"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith("sw.js")) {
+      res.setHeader("Service-Worker-Allowed", "/");
+      res.setHeader("Content-Type", "application/javascript");
+    }
+  }
+}));
+
 // Fallback Bangladeshi medicine database for instant search
 const COMMON_BD_MEDICINES = [
   {
