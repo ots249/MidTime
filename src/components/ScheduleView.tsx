@@ -364,27 +364,31 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           </div>
                         </div>
 
-                        {/* Action: Mark as Taken Button */}
-                        <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0">
+                        {/* Action: Mark as Taken Button with subtle pulse animation when due */}
+                        <div className="flex items-center justify-end gap-2 pt-1 sm:pt-0 shrink-0">
                           <button
                             id={`toggle-taken-${slot.id}-${med.id}`}
                             type="button"
                             onClick={() => onToggleTaken(med.id, slot.id)}
-                            className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs sm:text-sm transition-all cursor-pointer shadow-2xs active:scale-95 ${
+                            title={taken ? "পুনরায় গ্রহণ না করা হিসেবে চিহ্নিত করুন" : "ওষুধ গ্রহণ সম্পন্ন চিহ্নিত করুন"}
+                            className={`relative w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer active:scale-95 shadow-xs ${
                               taken
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                : "bg-teal-50 dark:bg-teal-950/60 hover:bg-teal-100 dark:hover:bg-teal-900/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800"
+                                : "bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white ring-2 ring-teal-400/40 dark:ring-teal-400/30 shadow-md shadow-teal-600/20 animate-pulse hover:animate-none hover:scale-[1.02]"
                             }`}
                           >
                             {taken ? (
                               <>
-                                <Check className="w-4 h-4" />
+                                <Check className="w-4 h-4 text-emerald-100" />
                                 <span>খাওয়া হয়েছে</span>
                               </>
                             ) : (
                               <>
-                                <Circle className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                                <span>ওষুধ খেয়েছি</span>
+                                <span className="relative flex h-2.5 w-2.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-200 opacity-75"></span>
+                                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white"></span>
+                                </span>
+                                <span>ওষুধ গ্রহণ করুন</span>
                               </>
                             )}
                           </button>
