@@ -232,13 +232,27 @@ export const MedicineListView: React.FC<MedicineListViewProps> = ({
                 <div>
                   {/* Top Row: Name, Form & Stock Badge */}
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-start gap-2.5">
-                      <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-950 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-900 flex items-center justify-center shrink-0 mt-0.5">
-                        <Pill className="w-5 h-5" />
+                    <div className="flex items-start gap-2.5 min-w-0">
+                      <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+                        {med.imageUrl ? (
+                          <img
+                            src={med.imageUrl}
+                            alt={med.name}
+                            referrerPolicy="no-referrer"
+                            className="w-full h-full object-contain p-0.5"
+                          />
+                        ) : (
+                          <Pill className="w-6 h-6 text-teal-600 dark:text-teal-400" />
+                        )}
                       </div>
-                      <div>
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <h3 className="text-base font-bold text-slate-900 dark:text-white">{med.name}</h3>
+                          <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">{med.name}</h3>
+                          {med.nameBn && (
+                            <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              ({med.nameBn})
+                            </span>
+                          )}
                           {med.strength && (
                             <span className="text-[11px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                               {med.strength}
@@ -249,22 +263,29 @@ export const MedicineListView: React.FC<MedicineListViewProps> = ({
                           </span>
                         </div>
                         {med.generic && (
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{med.generic}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">{med.generic}</p>
                         )}
                         {med.company && (
-                          <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Building2 className="w-3 h-3" />
-                            <span>{med.company}</span>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+                            <Building2 className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{med.company}</span>
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <span
-                      className={`text-[10px] px-2.5 py-1 rounded-full font-bold shrink-0 ${stockCalc.statusColor}`}
-                    >
-                      {stockCalc.statusText}
-                    </span>
+                    <div className="text-right shrink-0">
+                      <span
+                        className={`text-[10px] px-2.5 py-1 rounded-full font-bold block ${stockCalc.statusColor}`}
+                      >
+                        {stockCalc.statusText}
+                      </span>
+                      {med.mrp !== undefined && med.mrp > 0 && (
+                        <div className="mt-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                          ৳{toBanglaNumber(med.discountedPrice || med.mrp)}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Schedule Pills (সকাল / দুপুর / রাত) */}

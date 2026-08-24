@@ -50,20 +50,37 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
         {/* Header */}
         <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between bg-slate-50/80 dark:bg-slate-800/80">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center shadow-xs">
-              <Pill className="w-6 h-6" />
+            <div className="w-14 h-14 rounded-2xl bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-800 text-teal-600 dark:text-teal-400 flex items-center justify-center shadow-xs overflow-hidden shrink-0">
+              {medicine.imageUrl ? (
+                <img
+                  src={medicine.imageUrl}
+                  alt={medicine.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-contain p-1"
+                />
+              ) : (
+                <Pill className="w-7 h-7" />
+              )}
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-1.5">
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">{medicine.name}</h3>
+                {medicine.nameBn && (
+                  <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    ({medicine.nameBn})
+                  </span>
+                )}
                 {medicine.strength && (
                   <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
                     {medicine.strength}
                   </span>
                 )}
+                <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800">
+                  {medicine.dosageForm || "ট্যাবলেট"}
+                </span>
               </div>
               {medicine.generic && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{medicine.generic}</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5">{medicine.generic}</p>
               )}
               {medicine.company && (
                 <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
@@ -84,6 +101,31 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
 
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
+          {/* Price Card if available */}
+          {(medicine.mrp !== undefined && medicine.mrp > 0) && (
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold block">
+                  বাজার দর ও মূল্য তথ্য:
+                </span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                    MRP: ৳{toBanglaNumber(medicine.mrp)}
+                  </span>
+                  {medicine.discountedPrice && medicine.discountedPrice !== medicine.mrp && (
+                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+                      (বিশেষ ছাড় মূল্য: ৳{toBanglaNumber(medicine.discountedPrice)})
+                    </span>
+                  )}
+                </div>
+              </div>
+              {medicine.discountPercent && medicine.discountPercent > 0 ? (
+                <span className="px-2 py-1 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-xs">
+                  {toBanglaNumber(medicine.discountPercent)}% ছাড়
+                </span>
+              ) : null}
+            </div>
+          )}
           {/* Stock Alert Status */}
           <div className={`p-3.5 rounded-2xl border ${stockCalc.statusColor} flex items-center justify-between`}>
             <div>

@@ -30,10 +30,17 @@ export interface MedicineStock {
 export interface Medicine {
   id: string;
   name: string;             // যেমন: Napa Extra
+  nameBn?: string;           // যেমন: নাপা ৫০০
   generic?: string;          // যেমন: Paracetamol + Caffeine
   strength?: string;         // যেমন: 500 mg + 65 mg
   dosageForm: string;        // 'ট্যাবলেট' | 'ক্যাপসুল' | 'সিরাপ' | 'ড্রপ' | 'ইনজেকশন' | 'মলম'
   company?: string;          // যেমন: Beximco Pharmaceuticals Ltd.
+  mrp?: number;              // MRP মূল্য (e.g. 1.20)
+  discountedPrice?: number;  // ডিসকাউন্টেড মূল্য (e.g. 1.08)
+  discountPercent?: number;  // ডিসকাউন্ট % (e.g. 10)
+  imageUrl?: string;         // ওষুধের ছবি / পোস্টার লিঙ্ক
+  images?: string[];         // প্যাকেজিং বা পাতা ছবি গ্যালারি
+  description?: string;      // বর্ণনা / সংক্ষেপ
   schedule: MedicineSchedule;
   stock: MedicineStock;
   notes?: string;            // ডাক্তারের নির্দেশ / পরামর্শ
@@ -84,13 +91,27 @@ export interface Prescription {
 }
 
 export interface SearchMedicineResult {
-  brand_name: string;
+  p_name: string;
+  p_name_bn?: string;
+  p_form?: string;
+  p_strength?: string;
+  p_generic_name?: string;
+  p_brand_name?: string;
+  pv_mrp?: number;
+  pv_b2c_discounted_price?: number;
+  pv_b2c_discount_percent?: number;
+  POSTER?: string;
+  attachedFiles_p_images?: Array<{ src: string; title?: string }> | string[];
+  p_short_description?: string;
+  unit_per_strip?: number;
+  // Legacy / fallback fields
+  brand_name?: string;
   generic_name?: string;
   strength?: string;
   dosage_form?: string;
   company_name?: string;
-  unit_per_strip?: number;
   price_per_unit?: number;
+  source?: 'arogga' | 'medex' | 'parse' | 'local';
 }
 
 export interface BackupData {

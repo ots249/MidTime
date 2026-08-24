@@ -14,7 +14,11 @@ import {
   Check,
   Building2,
   Sparkles,
-  Loader2
+  Loader2,
+  Tag,
+  BadgePercent,
+  Image as ImageIcon,
+  CheckCircle2
 } from "lucide-react";
 import { Medicine, MedicineSchedule, MealTiming, SearchMedicineResult } from "../types";
 import { toBanglaNumber } from "../utils/banglaUtils";
@@ -37,13 +41,21 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchMedicineResult[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<SearchMedicineResult | null>(null);
 
   // Form Fields
   const [name, setName] = useState("");
+  const [nameBn, setNameBn] = useState("");
   const [generic, setGeneric] = useState("");
   const [strength, setStrength] = useState("");
   const [dosageForm, setDosageForm] = useState("ট্যাবলেট");
   const [company, setCompany] = useState("");
+  const [mrp, setMrp] = useState<number>(0);
+  const [discountedPrice, setDiscountedPrice] = useState<number>(0);
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [imageUrl, setImageUrl] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
 
   // Schedule Fields
   const [morning, setMorning] = useState(true);
@@ -69,15 +81,23 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
   const [notes, setNotes] = useState("");
 
   const searchDebounceRef = useRef<any>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Init when modal opens or initialMedicine changes
   useEffect(() => {
     if (initialMedicine) {
       setName(initialMedicine.name);
+      setNameBn(initialMedicine.nameBn || "");
       setGeneric(initialMedicine.generic || "");
       setStrength(initialMedicine.strength || "");
       setDosageForm(initialMedicine.dosageForm || "ট্যাবলেট");
       setCompany(initialMedicine.company || "");
+      setMrp(initialMedicine.mrp || 0);
+      setDiscountedPrice(initialMedicine.discountedPrice || 0);
+      setDiscountPercent(initialMedicine.discountPercent || 0);
+      setImageUrl(initialMedicine.imageUrl || "");
+      setImages(initialMedicine.images || []);
+      setDescription(initialMedicine.description || "");
 
       setMorning(initialMedicine.schedule.morning);
       setMorningDose(initialMedicine.schedule.morningDose || 1);
@@ -97,17 +117,36 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       setLowStockThreshold(initialMedicine.stock.lowStockThreshold || 5);
       setDurationDays(initialMedicine.durationDays || 7);
       setNotes(initialMedicine.notes || "");
+      setSelectedItem(null);
     } else {
       resetForm();
     }
   }, [initialMedicine, isOpen]);
 
+  // Click outside listener for dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const resetForm = () => {
     setName("");
+    setNameBn("");
     setGeneric("");
     setStrength("");
     setDosageForm("ট্যাবলেট");
     setCompany("");
+    setMrp(0);
+    setDiscountedPrice(0);
+    setDiscountPercent(0);
+    setImageUrl("");
+    setImages([]);
+    setDescription("");
     setMorning(true);
     setMorningDose(1);
     setMorningTiming("after_meal");
@@ -125,6 +164,7 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     setNotes("");
     setSearchQuery("");
     setSearchResults([]);
+    setSelectedItem(null);
   };
 
   // Medicine Search with API call debounce
@@ -157,24 +197,62 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
       } finally {
         setIsSearching(false);
       }
-    }, 250);
+    }, 200);
   };
 
   const handleSelectSearchResult = (item: SearchMedicineResult) => {
-    setName(item.brand_name || "");
-    setGeneric(item.generic_name || "");
-    setStrength(item.strength || "");
-    setDosageForm(
-      item.dosage_form === "Capsule"
-        ? "ক্যাপসুল"
-        : item.dosage_form === "Syrup"
-        ? "সিরাপ"
-        : "ট্যাবলেট"
-    );
-    setCompany(item.company_name || "");
+    setSelectedItem(item);
+    const medName = item.p_name || item.brand_name || "";
+    setName(medName);
+    setNameBn(item.p_name_bn || "");
+    setGeneric(item.p_generic_name || item.generic_name || "");
+    setStrength(item.p_strength || item.strength || "");
+
+    const formRaw = item.p_form || item.dosage_form || "";
+    if (/capsule|ক্যাপসুল/i.test(formRaw)) {
+      setDosageForm("ক্যাপসুল");
+    } else if (/syrup|suspension|সিরাপ/i.test(formRaw)) {
+      setDosageForm("সিরাপ");
+    } else if (/drop|ড্রপ/i.test(formRaw)) {
+      setDosageForm("ড্রপ");
+    } else if (/injection|ইনজেকশন/i.test(formRaw)) {
+      setDosageForm("ইনজেকশন");
+    } else if (/ointment|cream|gel|lotion|মলম/i.test(formRaw)) {
+      setDosageForm("মলম");
+    } else {
+      setDosageForm("ট্যাবলেট");
+    }
+
+    setCompany(item.p_brand_name || item.company_name || "");
+
+    // Price parsing
+    const parsedMrp = Number(item.pv_mrp || 0);
+    const parsedDiscount = Number(item.pv_b2c_discounted_price || parsedMrp);
+    const parsedPercent = Number(item.pv_b2c_discount_percent || 0);
+    setMrp(parsedMrp);
+    setDiscountedPrice(parsedDiscount);
+    setDiscountPercent(parsedPercent);
+
+    // Image / Poster
+    let mainImg = item.POSTER || "";
+    const attachedArr: string[] = [];
+    if (Array.isArray(item.attachedFiles_p_images)) {
+      item.attachedFiles_p_images.forEach((img: any) => {
+        const src = typeof img === "string" ? img : img?.src;
+        if (src) attachedArr.push(src);
+      });
+    }
+    if (!mainImg && attachedArr.length > 0) {
+      mainImg = attachedArr[0];
+    }
+    setImageUrl(mainImg);
+    setImages(attachedArr);
+    setDescription(item.p_short_description || "");
+
     if (item.unit_per_strip) {
       setTabletsPerStrip(item.unit_per_strip);
     }
+
     setShowDropdown(false);
   };
 
@@ -187,10 +265,17 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
     const newMed: Medicine = {
       id: initialMedicine?.id || `med-${Date.now()}`,
       name: name.trim(),
-      generic: generic.trim(),
-      strength: strength.trim(),
+      nameBn: nameBn.trim() || undefined,
+      generic: generic.trim() || undefined,
+      strength: strength.trim() || undefined,
       dosageForm: dosageForm.trim(),
-      company: company.trim(),
+      company: company.trim() || undefined,
+      mrp: mrp > 0 ? mrp : undefined,
+      discountedPrice: discountedPrice > 0 ? discountedPrice : undefined,
+      discountPercent: discountPercent > 0 ? discountPercent : undefined,
+      imageUrl: imageUrl || undefined,
+      images: images.length > 0 ? images : undefined,
+      description: description || undefined,
       schedule: {
         morning,
         morningDose: morning ? morningDose : 0,
@@ -209,7 +294,7 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
         totalUnits: Math.max(0, totalUnits),
         lowStockThreshold: Math.max(1, lowStockThreshold)
       },
-      notes: notes.trim(),
+      notes: notes.trim() || undefined,
       startDate: initialMedicine?.startDate || new Date().toISOString().split("T")[0],
       durationDays: Math.max(1, durationDays),
       color: "teal",
@@ -233,11 +318,14 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               <Pill className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                {initialMedicine ? "ওষুধ এডিট করুন" : "নতুন ওষুধ যুক্ত করুন"}
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <span>{initialMedicine ? "ওষুধ এডিট করুন" : "নতুন ওষুধ যুক্ত করুন"}</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                  Arogga Live Search
+                </span>
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                ওষুধের নাম, খাওয়ার সময় এবং পাতা/মজুত সেট করুন
+                ওষুধের নাম লিখলে স্বয়ংক্রিয়ভাবে ছবি, জেনেরিক, স্ট্রেন্থ ও মূল্য চলে আসবে
               </p>
             </div>
           </div>
@@ -255,7 +343,7 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
         {/* Modal Body / Form */}
         <form onSubmit={handleSubmit} className="p-4 sm:p-6 overflow-y-auto space-y-5">
           {/* 1. Medicine Name & Live Search */}
-          <div className="relative">
+          <div className="relative" ref={dropdownRef}>
             <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 mb-1">
               ওষুধের নাম (ব্র্যান্ড বা জেনেরিক নাম লিখুন): <span className="text-rose-500">*</span>
             </label>
@@ -264,7 +352,7 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 id="input-medicine-name"
                 type="text"
                 required
-                placeholder="যেমন: Napa Extra, Pantonix 20, Ace, Sergel..."
+                placeholder="যেমন: Napa, Sergel, Seclo, Maxpro, Pantonix, Ace, Filwel..."
                 value={name}
                 onChange={(e) => handleSearchChange(e.target.value)}
                 onFocus={() => {
@@ -278,49 +366,193 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
               )}
             </div>
 
-            {/* Live Autocomplete Dropdown */}
+            {/* Live Autocomplete Dropdown with rich Arogga details */}
             {showDropdown && searchResults.length > 0 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl z-20 max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-700">
-                {searchResults.map((item, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => handleSelectSearchResult(item)}
-                    className="p-3 hover:bg-teal-50/70 dark:hover:bg-teal-950/60 transition-colors cursor-pointer flex items-center justify-between gap-2"
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <strong className="text-sm font-bold text-slate-900 dark:text-white">
-                          {item.brand_name}
-                        </strong>
-                        {item.strength && (
-                          <span className="text-[11px] px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-700 font-semibold text-slate-700 dark:text-slate-300">
-                            {item.strength}
-                          </span>
-                        )}
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-medium">
-                          {item.dosage_form || "ট্যাবলেট"}
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-750 dark:border-slate-700 rounded-2xl shadow-2xl z-30 max-h-72 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+                <div className="px-3 py-1.5 bg-slate-100/70 dark:bg-slate-800/90 text-[11px] font-bold text-slate-600 dark:text-slate-400 flex items-center justify-between">
+                  <span>অনুসন্ধানের ফলাফল ({toBanglaNumber(searchResults.length)} টি ওষুধ পাওয়া গেছে)</span>
+                  <span className="text-[10px] text-teal-600 dark:text-teal-400">ক্লিক করে সিলেক্ট করুন</span>
+                </div>
+
+                {searchResults.map((item, idx) => {
+                  const itemPoster =
+                    item.POSTER ||
+                    (Array.isArray(item.attachedFiles_p_images) && item.attachedFiles_p_images[0]
+                      ? typeof item.attachedFiles_p_images[0] === "string"
+                        ? item.attachedFiles_p_images[0]
+                        : item.attachedFiles_p_images[0]?.src
+                      : "");
+
+                  const hasDiscount =
+                    item.pv_b2c_discounted_price &&
+                    item.pv_mrp &&
+                    item.pv_b2c_discounted_price < item.pv_mrp;
+
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectSearchResult(item)}
+                      className="p-3 hover:bg-teal-50/80 dark:hover:bg-teal-950/60 transition-colors cursor-pointer flex items-center justify-between gap-3 group"
+                    >
+                      {/* Left: Thumbnail image */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center shrink-0 overflow-hidden relative">
+                          {itemPoster ? (
+                            <img
+                              src={itemPoster}
+                              alt={item.p_name || item.brand_name}
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-contain p-1"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <Pill className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                          )}
+                        </div>
+
+                        {/* Middle: Details */}
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <strong className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors truncate">
+                              {item.p_name || item.brand_name}
+                            </strong>
+                            {item.p_name_bn && (
+                              <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                                ({item.p_name_bn})
+                              </span>
+                            )}
+                            {(item.p_strength || item.strength) && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-200/80 dark:bg-slate-700 font-bold text-slate-800 dark:text-slate-200">
+                                {item.p_strength || item.strength}
+                              </span>
+                            )}
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 font-semibold border border-teal-200 dark:border-teal-800">
+                              {item.p_form || item.dosage_form || "ট্যাবলেট"}
+                            </span>
+                          </div>
+
+                          {(item.p_generic_name || item.generic_name) && (
+                            <p className="text-xs text-slate-600 dark:text-slate-300 font-medium mt-0.5 truncate">
+                              {item.p_generic_name || item.generic_name}
+                            </p>
+                          )}
+
+                          {(item.p_brand_name || item.company_name) && (
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5 truncate">
+                              <Building2 className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{item.p_brand_name || item.company_name}</span>
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Right: Pricing & Select button */}
+                      <div className="text-right shrink-0">
+                        {item.pv_mrp !== undefined && item.pv_mrp > 0 ? (
+                          <div className="space-y-0.5">
+                            {hasDiscount ? (
+                              <div className="flex items-center justify-end gap-1.5">
+                                <span className="text-[11px] text-slate-400 line-through">
+                                  ৳{toBanglaNumber(item.pv_mrp)}
+                                </span>
+                                <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
+                                  ৳{toBanglaNumber(item.pv_b2c_discounted_price || item.pv_mrp)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                                ৳{toBanglaNumber(item.pv_mrp)}
+                              </span>
+                            )}
+
+                            {item.pv_b2c_discount_percent ? (
+                              <span className="inline-block text-[10px] px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold">
+                                {toBanglaNumber(item.pv_b2c_discount_percent)}% ছাড়
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-teal-600 dark:text-teal-400 group-hover:underline">
+                          সিলেক্ট করুন →
                         </span>
                       </div>
-                      {item.generic_name && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{item.generic_name}</p>
-                      )}
-                      {item.company_name && (
-                        <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
-                          <Building2 className="w-3 h-3" /> {item.company_name}
-                        </p>
-                      )}
                     </div>
-
-                    <span className="text-xs font-semibold text-teal-700 dark:text-teal-400 shrink-0">
-                      সিলেক্ট করুন →
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Secondary Details: Generic & Strength & Form */}
+          {/* Selected Medicine Info Banner (If selected or has image/pricing) */}
+          {(imageUrl || company || generic || mrp > 0) && (
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/10 to-teal-500/5 dark:from-teal-950/40 dark:via-emerald-950/30 dark:to-slate-900 border border-teal-200 dark:border-teal-800 flex items-start gap-3.5">
+              <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                {imageUrl ? (
+                  <img
+                    src={imageUrl}
+                    alt={name}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-contain p-1"
+                  />
+                ) : (
+                  <Pill className="w-8 h-8 text-teal-600 dark:text-teal-400" />
+                )}
+              </div>
+
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex flex-wrap items-center justify-between gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-sm font-bold text-slate-900 dark:text-white">{name}</h4>
+                    {nameBn && <span className="text-xs text-slate-500 dark:text-slate-400">({nameBn})</span>}
+                    {strength && (
+                      <span className="text-[11px] font-bold px-1.5 py-0.2 rounded bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-300">
+                        {strength}
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Arogga ভেরিফাইড
+                  </span>
+                </div>
+
+                {generic && (
+                  <p className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+                    <span className="text-slate-500 dark:text-slate-400">জেনেরিক:</span> {generic}
+                  </p>
+                )}
+
+                {company && (
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                    <Building2 className="w-3 h-3 text-slate-400" />
+                    <span>প্রস্তুতকারক: {company}</span>
+                  </p>
+                )}
+
+                {mrp > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 text-xs pt-1 border-t border-teal-200/50 dark:border-teal-900/60">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      খুচরা মূল্য (MRP): <strong className="text-slate-800 dark:text-slate-200">৳{toBanglaNumber(mrp)}</strong>
+                    </span>
+                    {discountedPrice > 0 && discountedPrice !== mrp && (
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold">
+                        বিশেষ মূল্য: ৳{toBanglaNumber(discountedPrice)}
+                      </span>
+                    )}
+                    {discountPercent > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold">
+                        {toBanglaNumber(discountPercent)}% ছাড়
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Secondary Details: Generic, Strength & Form */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
@@ -364,6 +596,52 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
                 <option value="মলম" className="dark:bg-slate-800">মলম/ক্রিম (Ointment)</option>
                 <option value="ইনজেকশন" className="dark:bg-slate-800">ইনজেকশন (Injection)</option>
               </select>
+            </div>
+          </div>
+
+          {/* Company & Price Inputs */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                প্রস্তুতকারক কোম্পানি:
+              </label>
+              <input
+                type="text"
+                placeholder="যেমন: Beximco, Square, Incepta"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:border-teal-600 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                প্রতি ইউনিটের MRP (৳):
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={mrp || ""}
+                onChange={(e) => setMrp(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:border-teal-600 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                ডিসকাউন্টেড মূল্য (৳):
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="0.00"
+                value={discountedPrice || ""}
+                onChange={(e) => setDiscountedPrice(parseFloat(e.target.value) || 0)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 focus:bg-white dark:focus:bg-slate-800 focus:border-teal-600 outline-none"
+              />
             </div>
           </div>
 
@@ -525,7 +803,7 @@ export const AddMedicineModal: React.FC<AddMedicineModalProps> = ({
           </div>
 
           {/* 3. Stock & Strips Setup */}
-          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-850 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-750 dark:border-slate-700/80 space-y-3">
+          <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/80 space-y-3">
             <h3 className="text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 uppercase tracking-wide">
               <Layers className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
               <span>পাতা ও মজুত হিসাব (Stock Configuration)</span>

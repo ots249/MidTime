@@ -386,16 +386,138 @@ const COMMON_BD_MEDICINES = [
   }
 ];
 
-// 1. Medicine Search API with Medex.com.bd + Fallbacks
+// 1. Medicine Search API with Arogga as Main API + Fallback Chain (Medex, Parse.bot, Local BD DB)
 app.get("/api/medicines/search", async (req, res) => {
-  const query = ((req.query.query as string) || "").trim();
+  const query = ((req.query.query as string) || (req.query._search as string) || "").trim();
   if (!query) {
-    return res.json({ results: COMMON_BD_MEDICINES.slice(0, 15) });
+    const formattedDefault = COMMON_BD_MEDICINES.slice(0, 15).map((m) => ({
+      p_name: m.brand_name,
+      p_form: m.dosage_form,
+      p_strength: m.strength,
+      p_generic_name: m.generic_name,
+      p_brand_name: m.company_name,
+      pv_mrp: m.price_per_unit,
+      pv_b2c_discounted_price: m.price_per_unit,
+      pv_b2c_discount_percent: 0,
+      POSTER: "",
+      attachedFiles_p_images: [],
+      unit_per_strip: m.unit_per_strip,
+      brand_name: m.brand_name,
+      generic_name: m.generic_name,
+      strength: m.strength,
+      dosage_form: m.dosage_form,
+      company_name: m.company_name,
+      price_per_unit: m.price_per_unit,
+      source: "local" as const
+    }));
+    return res.json({ results: formattedDefault });
   }
 
-  let apiResults: any[] = [];
+  let aroggaResults: any[] = [];
 
-  // 1. Try Medex search: https://medex.com.bd/ajax/search?searchtype=search&searchkey={name}
+  // ==========================================
+  // 1. NEW MAIN API: Arogga Search API
+  // https://api.arogga.com/general/v3/search?_search={medicine-name}
+  // ==========================================
+  try {
+    const aroggaUrl = `https://api.arogga.com/general/v3/search?_search=${encodeURIComponent(query)}`;
+    const aroggaRes = await fetch(aroggaUrl, {
+      method: "GET",
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json"
+      }
+    });
+
+    if (aroggaRes.ok) {
+      const aroggaData = await aroggaRes.json();
+      const rawList = Array.isArray(aroggaData?.data) ? aroggaData.data : [];
+
+      if (rawList.length > 0) {
+        aroggaResults = rawList.map((item: any) => {
+          const p_name = item.p_name || item.brand_name || query;
+          const p_name_bn = item.p_name_bn || "";
+          const p_form = item.p_form || "Tablet";
+          const p_strength = item.p_strength || "";
+          const p_generic_name = (item.p_generic_name || "").trim();
+          const p_brand_name = item.p_brand_name || item.p_brand || item.p_manufacturer || "";
+
+          // Price parsing from pv (product variants)
+          const primaryPv = Array.isArray(item.pv) && item.pv.length > 0 ? item.pv[0] : null;
+          const pv_mrp = Number(primaryPv?.pv_mrp ?? primaryPv?.pv_b2c_mrp ?? 0);
+          const pv_b2c_discounted_price = Number(
+            primaryPv?.pv_b2c_discounted_price ?? primaryPv?.pv_b2c_price ?? pv_mrp
+          );
+          const pv_b2c_discount_percent = Number(primaryPv?.pv_b2c_discount_percent ?? 0);
+
+          // Clean image URLs (fixing escaped forward slashes)
+          let poster = item.POSTER ? String(item.POSTER).replace(/\\\//g, "/") : "";
+          const attachedFiles = Array.isArray(item.attachedFiles_p_images)
+            ? item.attachedFiles_p_images
+                .map((img: any) => ({
+                  src: typeof img === "string" ? img.replace(/\\\//g, "/") : (img?.src || "").replace(/\\\//g, "/"),
+                  title: img?.title || ""
+                }))
+                .filter((img: any) => Boolean(img.src))
+            : [];
+
+          if (!poster && attachedFiles.length > 0) {
+            poster = attachedFiles[0].src;
+          }
+
+          // Compute multiplier / tablets per strip
+          let unit_per_strip = 10;
+          if (Array.isArray(item.pu)) {
+            const stripUnit = item.pu.find((u: any) => /strip|পাতা/i.test(u.pu_label || ""));
+            if (stripUnit && stripUnit.pu_multiplier) {
+              unit_per_strip = Number(stripUnit.pu_multiplier) || 10;
+            } else if (/syrup|suspension|drop|injection|ointment|cream|gel|lotion/i.test(p_form)) {
+              unit_per_strip = 1;
+            }
+          } else if (/syrup|suspension|drop|injection|ointment|cream|gel|lotion/i.test(p_form)) {
+            unit_per_strip = 1;
+          }
+
+          return {
+            p_name,
+            p_name_bn,
+            p_form,
+            p_strength,
+            p_generic_name,
+            p_brand_name,
+            pv_mrp,
+            pv_b2c_discounted_price,
+            pv_b2c_discount_percent,
+            POSTER: poster,
+            attachedFiles_p_images: attachedFiles,
+            p_short_description: item.p_short_description || "",
+            unit_per_strip,
+            // Legacy backwards-compatible fields
+            brand_name: p_name,
+            generic_name: p_generic_name,
+            strength: p_strength,
+            dosage_form: p_form,
+            company_name: p_brand_name,
+            price_per_unit: pv_b2c_discounted_price || pv_mrp,
+            source: "arogga" as const
+          };
+        });
+      }
+    }
+  } catch (aroggaErr) {
+    console.warn("Arogga main search API failed (switching to backup sources):", aroggaErr);
+  }
+
+  // If Arogga returned matches, return them
+  if (aroggaResults.length > 0) {
+    return res.json({ results: aroggaResults, source: "arogga" });
+  }
+
+  // ==========================================
+  // 2. BACKUP 1: Medex search
+  // ==========================================
+  let backupResults: any[] = [];
   try {
     const medexUrl = `https://medex.com.bd/ajax/search?searchtype=search&searchkey=${encodeURIComponent(query)}`;
     const medexRes = await fetch(medexUrl, {
@@ -414,63 +536,22 @@ app.get("/api/medicines/search", async (req, res) => {
       if (contentType.includes("json")) {
         const jsonData = await medexRes.json();
         if (Array.isArray(jsonData)) {
-          apiResults = jsonData;
+          backupResults = jsonData;
         } else if (jsonData && Array.isArray(jsonData.data)) {
-          apiResults = jsonData.data;
+          backupResults = jsonData.data;
         } else if (jsonData && Array.isArray(jsonData.results)) {
-          apiResults = jsonData.results;
-        } else if (jsonData && Array.isArray(jsonData.medicines)) {
-          apiResults = jsonData.medicines;
-        }
-      } else {
-        // If Medex returns HTML search markup, parse it
-        const htmlText = await medexRes.text();
-        const parsedHtmlMeds: any[] = [];
-
-        // Match anchor tags or search rows
-        const itemRegex = /<a[^>]*href="[^"]*(?:brands|generic|medicines)\/([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-        let match;
-
-        while ((match = itemRegex.exec(htmlText)) !== null) {
-          const innerHtml = match[2];
-          // Strip HTML tags for clean text
-          const cleanText = innerHtml.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-          if (cleanText) {
-            // Check dosage form
-            let form = "Tablet";
-            if (/capsule/i.test(cleanText)) form = "Capsule";
-            else if (/syrup|suspension/i.test(cleanText)) form = "Syrup";
-            else if (/drop/i.test(cleanText)) form = "Drop";
-            else if (/injection/i.test(cleanText)) form = "Injection";
-            else if (/cream|ointment/i.test(cleanText)) form = "Ointment";
-
-            // Extract strength like 500 mg, 20 mg, 10 mg
-            const strengthMatch = cleanText.match(/\b\d+(?:\.\d+)?\s*(?:mg|ml|mcg|gm|iu|%)\b/i);
-            const strength = strengthMatch ? strengthMatch[0] : "";
-
-            parsedHtmlMeds.push({
-              brand_name: cleanText.split(" - ")[0] || cleanText,
-              generic_name: "",
-              strength: strength,
-              dosage_form: form,
-              company_name: "বাংলাদেশি প্রস্তুতকারক",
-              unit_per_strip: form === "Syrup" || form === "Drop" ? 1 : 10,
-              price_per_unit: 0
-            });
-          }
-        }
-
-        if (parsedHtmlMeds.length > 0) {
-          apiResults = parsedHtmlMeds;
+          backupResults = jsonData.results;
         }
       }
     }
   } catch (medexErr) {
-    console.warn("Medex search fetch error (falling back to parse.bot & local):", medexErr);
+    console.warn("Backup 1 (Medex) error:", medexErr);
   }
 
-  // 2. Secondary API Fallback: Parse.bot API
-  if (apiResults.length === 0) {
+  // ==========================================
+  // 3. BACKUP 2: Parse.bot API
+  // ==========================================
+  if (backupResults.length === 0) {
     try {
       const apiKey = process.env.PARSE_API_KEY || "pmx_88b6be352cccb5a5674405093de421c2";
       const parseUrl = `https://api.parse.bot/scraper/6077263a-c666-469b-b93b-483335303c74/search_medicines?query=${encodeURIComponent(query)}`;
@@ -485,23 +566,21 @@ app.get("/api/medicines/search", async (req, res) => {
       if (parseRes.ok) {
         const data = await parseRes.json();
         if (Array.isArray(data)) {
-          apiResults = data;
+          backupResults = data;
         } else if (data && Array.isArray(data.results)) {
-          apiResults = data.results;
+          backupResults = data.results;
         } else if (data && Array.isArray(data.medicines)) {
-          apiResults = data.medicines;
-        } else if (data && typeof data === "object") {
-          const values = Object.values(data);
-          const firstArray = values.find((v) => Array.isArray(v));
-          if (firstArray) apiResults = firstArray as any[];
+          backupResults = data.medicines;
         }
       }
     } catch (parseErr) {
-      console.warn("Parse.bot scraper error (using local database):", parseErr);
+      console.warn("Backup 2 (Parse.bot) error:", parseErr);
     }
   }
 
-  // 3. Filter local Bangladesh medicines database
+  // ==========================================
+  // 4. BACKUP 3: Local Bangladesh Medicines DB
+  // ==========================================
   const lowerQ = query.toLowerCase();
   const localMatches = COMMON_BD_MEDICINES.filter(
     (m) =>
@@ -510,45 +589,96 @@ app.get("/api/medicines/search", async (req, res) => {
       m.company_name.toLowerCase().includes(lowerQ)
   );
 
-  // Normalize API results to standard format
-  const normalizedApi = apiResults.map((item: any) => {
+  // Normalize fallback items to unified format
+  const normalizedBackup = backupResults.map((item: any) => {
+    const brand = item.brand_name || item.name || item.medicine_name || item.title || query;
+    const generic = item.generic_name || item.generic || item.composition || "";
+    const strength = item.strength || item.mg || "";
+    const form = item.dosage_form || item.form || item.type || "Tablet";
+    const company = item.company_name || item.company || item.manufacturer || "";
+    const unitPerStrip = item.unit_per_strip || item.pack_size || 10;
+    const price = item.price_per_unit || item.unit_price || 0;
+
     return {
-      brand_name: item.brand_name || item.name || item.medicine_name || item.title || query,
-      generic_name: item.generic_name || item.generic || item.composition || "",
-      strength: item.strength || item.mg || "",
-      dosage_form: item.dosage_form || item.form || item.type || "Tablet",
-      company_name: item.company_name || item.company || item.manufacturer || "",
-      unit_per_strip: item.unit_per_strip || item.pack_size || 10,
-      price_per_unit: item.price_per_unit || item.unit_price || 0
+      p_name: brand,
+      p_form: form,
+      p_strength: strength,
+      p_generic_name: generic,
+      p_brand_name: company,
+      pv_mrp: price,
+      pv_b2c_discounted_price: price,
+      pv_b2c_discount_percent: 0,
+      POSTER: item.POSTER || item.image || item.imageUrl || "",
+      attachedFiles_p_images: [],
+      unit_per_strip: unitPerStrip,
+      brand_name: brand,
+      generic_name: generic,
+      strength: strength,
+      dosage_form: form,
+      company_name: company,
+      price_per_unit: price,
+      source: "medex" as const
     };
   });
 
-  // Combine unique by brand_name
+  const normalizedLocal = localMatches.map((m) => ({
+    p_name: m.brand_name,
+    p_form: m.dosage_form,
+    p_strength: m.strength,
+    p_generic_name: m.generic_name,
+    p_brand_name: m.company_name,
+    pv_mrp: m.price_per_unit,
+    pv_b2c_discounted_price: m.price_per_unit,
+    pv_b2c_discount_percent: 0,
+    POSTER: "",
+    attachedFiles_p_images: [],
+    unit_per_strip: m.unit_per_strip,
+    brand_name: m.brand_name,
+    generic_name: m.generic_name,
+    strength: m.strength,
+    dosage_form: m.dosage_form,
+    company_name: m.company_name,
+    price_per_unit: m.price_per_unit,
+    source: "local" as const
+  }));
+
+  // Combine unique by p_name
   const seen = new Set<string>();
   const combined: any[] = [];
 
-  for (const item of [...normalizedApi, ...localMatches]) {
-    const key = (item.brand_name || "").toLowerCase().trim();
+  for (const item of [...normalizedBackup, ...normalizedLocal]) {
+    const key = (item.p_name || "").toLowerCase().trim();
     if (key && !seen.has(key)) {
       seen.add(key);
       combined.push(item);
     }
   }
 
-  // If no exact match, ensure search query can still be used as a custom medicine
+  // If no match found, supply the user typed query as custom fallback
   if (combined.length === 0) {
     combined.push({
+      p_name: query,
+      p_form: "Tablet",
+      p_strength: "",
+      p_generic_name: "",
+      p_brand_name: "বাংলাদেশি ঔষধ",
+      pv_mrp: 0,
+      pv_b2c_discounted_price: 0,
+      pv_b2c_discount_percent: 0,
+      POSTER: "",
+      attachedFiles_p_images: [],
+      unit_per_strip: 10,
       brand_name: query,
       generic_name: "",
       strength: "",
       dosage_form: "Tablet",
       company_name: "বাংলাদেশি ঔষধ",
-      unit_per_strip: 10,
-      price_per_unit: 0
+      price_per_unit: 0,
+      source: "local" as const
     });
   }
 
-  res.json({ results: combined });
+  res.json({ results: combined, source: "backup" });
 });
 
 // 2. Prescription AI OCR & Analysis endpoint
