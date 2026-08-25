@@ -145,3 +145,43 @@ export const getDoseDescriptionBangla = (med: Medicine): string => {
   }
   return parts.length > 0 ? parts.join(" + ") : "কোনো নিয়মিত সূচি নেই";
 };
+
+export interface CurrentTimeSlotInfo {
+  slot: "morning" | "afternoon" | "night";
+  labelBn: string;
+  timeRangeBn: string;
+  iconName: "sunrise" | "sun" | "moon";
+}
+
+/**
+ * Returns the active time slot based on the current hour:
+ * - 05:00 - 11:59 : সকাল (Morning)
+ * - 12:00 - 17:59 : দুপুর (Afternoon)
+ * - 18:00 - 04:59 : রাত (Night)
+ */
+export const getCurrentTimeSlot = (date: Date = new Date()): CurrentTimeSlotInfo => {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) {
+    return {
+      slot: "morning",
+      labelBn: "সকাল",
+      timeRangeBn: "সকাল ৭:০০ - ১০:০০",
+      iconName: "sunrise"
+    };
+  } else if (hour >= 12 && hour < 18) {
+    return {
+      slot: "afternoon",
+      labelBn: "দুপুর",
+      timeRangeBn: "দুপুর ১:০০ - ৩:০০",
+      iconName: "sun"
+    };
+  } else {
+    return {
+      slot: "night",
+      labelBn: "রাত",
+      timeRangeBn: "রাত ৮:০০ - ১০:৩০",
+      iconName: "moon"
+    };
+  }
+};
+

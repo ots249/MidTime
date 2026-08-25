@@ -33,6 +33,7 @@ interface MedicineDetailModalProps {
   onClose: () => void;
   onEdit: (medicine: Medicine) => void;
   onDelete: (medicineId: string) => void;
+  onRequestDelete?: (medicine: Medicine) => void;
   onQuickAddStrips: (medicineId: string, strips: number) => void;
 }
 
@@ -42,6 +43,7 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
   onClose,
   onEdit,
   onDelete,
+  onRequestDelete,
   onQuickAddStrips
 }) => {
   if (!isOpen || !medicine) return null;
@@ -370,7 +372,10 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
             id={`delete-med-btn-${medicine.id}`}
             type="button"
             onClick={() => {
-              if (window.confirm(`আপনি কি নিশ্চিত যে "${medicine.name}" তালিকা থেকে মুছতে চান?`)) {
+              if (onRequestDelete) {
+                onClose();
+                onRequestDelete(medicine);
+              } else {
                 onDelete(medicine.id);
                 onClose();
               }
@@ -389,7 +394,7 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
                 onClose();
                 onEdit(medicine);
               }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold cursor-pointer transition-colors shadow-xs"
             >
               <Edit3 className="w-4 h-4" />
               <span>এডিট করুন</span>

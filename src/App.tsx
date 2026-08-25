@@ -11,6 +11,7 @@ import { AddMedicineModal } from "./components/AddMedicineModal";
 import { MedicineDetailModal } from "./components/MedicineDetailModal";
 import { SettingsModal } from "./components/SettingsModal";
 import { CloudSyncModal } from "./components/CloudSyncModal";
+import { DeleteConfirmModal } from "./components/DeleteConfirmModal";
 import {
   Medicine,
   Prescription,
@@ -21,7 +22,7 @@ import {
   DEFAULT_SAMPLE_MEDICINES
 } from "./types";
 import { soundManager } from "./utils/sound";
-import { calculateRemainingStrips } from "./utils/banglaUtils";
+import { calculateRemainingStrips, getCurrentTimeSlot } from "./utils/banglaUtils";
 import {
   testConnection,
   subscribeAuth,
@@ -136,6 +137,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [selectedDetailMed, setSelectedDetailMed] = useState<Medicine | null>(null);
+  const [medicineToDelete, setMedicineToDelete] = useState<Medicine | null>(null);
 
   // Today's date string YYYY-MM-DD
   const todayKey = new Date().toISOString().split("T")[0];
@@ -617,6 +619,23 @@ export default function App() {
     soundManager.playTakeMedicineSound();
   };
 
+  // Auto-time tracking for active slots (updates every 10 seconds)
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentSlotInfo = getCurrentTimeSlot(currentTime);
+  const currentSlotMeds = medicines.filter((m) => !!m.schedule[currentSlotInfo.slot]);
+  const currentSlotTakenCount = currentSlotMeds.filter(
+    (m) => !!todayLogs[m.id]?.[currentSlotInfo.slot]
+  ).length;
+  const pendingSlotDoses = Math.max(0, currentSlotMeds.length - currentSlotTakenCount);
+  const totalSlotDoses = currentSlotMeds.length;
+
   // Stock alerts calculation
   const stockCalculations = medicines.map((m) => calculateRemainingStrips(m));
   const lowStockCount = stockCalculations.filter((c) => c.isLowStock).length;
@@ -641,6 +660,10 @@ export default function App() {
         lowStockCount={lowStockCount}
         outOfStockCount={outOfStockCount}
         totalMedicines={medicines.length}
+        currentSlotInfo={currentSlotInfo}
+        pendingSlotDoses={pendingSlotDoses}
+        totalSlotDoses={totalSlotDoses}
+        onSelectCurrentSlot={() => setActiveTab("schedule")}
       />
 
       {/* Global Low Stock Warning Banner */}
@@ -686,6 +709,7 @@ export default function App() {
               setIsAddModalOpen(true);
             }}
             onDeleteMedicine={handleDeleteMedicine}
+            onRequestDelete={(med) => setMedicineToDelete(med)}
             onOpenDetails={(med) => setSelectedDetailMed(med)}
             onQuickAddStrips={handleQuickAddStrips}
           />
@@ -784,7 +808,22 @@ export default function App() {
           setIsAddModalOpen(true);
         }}
         onDelete={handleDeleteMedicine}
+        onRequestDelete={(med) => {
+          setSelectedDetailMed(null);
+          setMedicineToDelete(med);
+        }}
         onQuickAddStrips={handleQuickAddStrips}
+      />
+
+      {/* Global Delete Confirmation Dialog */}
+      <DeleteConfirmModal
+        medicine={medicineToDelete}
+        isOpen={!!medicineToDelete}
+        onClose={() => setMedicineToDelete(null)}
+        onConfirm={(medicineId) => {
+          handleDeleteMedicine(medicineId);
+          setMedicineToDelete(null);
+        }}
       />
     </div>
   );
