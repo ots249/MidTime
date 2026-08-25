@@ -11,7 +11,9 @@ import {
   Pill,
   ShoppingBag,
   TrendingDown,
-  Info
+  Info,
+  Receipt,
+  Coins
 } from "lucide-react";
 import { Medicine } from "../types";
 import {
@@ -287,7 +289,7 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
 
                 {/* Stock Details & Calculation Box */}
                 {!isEditing ? (
-                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50/70 dark:bg-slate-800/60 p-3 rounded-xl transition-colors">
+                  <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-4 gap-3 bg-slate-50/70 dark:bg-slate-800/60 p-3 rounded-xl transition-colors">
                     <div>
                       <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">কয় পাতা বাকি:</span>
                       <p className="text-base font-bold text-slate-900 dark:text-white mt-0.5">
@@ -314,6 +316,25 @@ export const StockTrackerView: React.FC<StockTrackerViewProps> = ({
                       <p className="text-[11px] text-slate-400 dark:text-slate-500">
                         সতর্কবার্তা থ্রেশহোল্ড: {toBanglaNumber(med.stock.lowStockThreshold || 5)} টি
                       </p>
+                    </div>
+
+                    {/* Price & Value info */}
+                    <div>
+                      <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">১ পাতার মূল্য:</span>
+                      {med.mrp !== undefined && med.mrp > 0 ? (
+                        <div className="mt-0.5">
+                          <p className="text-base font-extrabold text-emerald-700 dark:text-emerald-400">
+                            ৳{toBanglaNumber(((med.discountedPrice || med.mrp) * (med.stock.tabletsPerStrip || 10)).toFixed(2))}
+                          </p>
+                          <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                            (৳{toBanglaNumber((med.discountedPrice || med.mrp).toFixed(2))} / পিস)
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1 italic">
+                          মূল্য সেট করা নেই
+                        </p>
+                      )}
                     </div>
 
                     {/* Quick Refill Actions */}

@@ -13,7 +13,11 @@ import {
   Sunrise,
   Sun,
   Moon,
-  Plus
+  Plus,
+  Receipt,
+  BadgePercent,
+  Coins,
+  Sparkles
 } from "lucide-react";
 import { Medicine } from "../types";
 import {
@@ -43,6 +47,18 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
   if (!isOpen || !medicine) return null;
 
   const stockCalc = calculateRemainingStrips(medicine);
+
+  // Price & Strip Calculations
+  const tabletsPerStrip = medicine.stock.tabletsPerStrip || 10;
+  const unitMrp = Number(medicine.mrp || 0);
+  const unitPrice = Number(medicine.discountedPrice || medicine.mrp || 0);
+  const stripMrp = unitMrp * tabletsPerStrip;
+  const stripPrice = unitPrice * tabletsPerStrip;
+  const totalStockPrice = (medicine.stock.totalUnits || 0) * unitPrice;
+  const discountPercent =
+    medicine.discountPercent ||
+    (unitMrp > 0 && unitPrice < unitMrp ? Math.round(((unitMrp - unitPrice) / unitMrp) * 100) : 0);
+  const hasPrice = unitMrp > 0 || unitPrice > 0;
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 dark:bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
@@ -101,31 +117,112 @@ export const MedicineDetailModal: React.FC<MedicineDetailModalProps> = ({
 
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4 text-xs">
-          {/* Price Card if available */}
-          {(medicine.mrp !== undefined && medicine.mrp > 0) && (
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 dark:from-emerald-950/40 dark:to-teal-950/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold block">
-                  বাজার দর ও মূল্য তথ্য:
+          {/* Detailed Price Information Card (১ পাতা ও প্রতি পিসের মূল্য) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 via-teal-500/10 to-indigo-500/5 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-slate-900 border border-emerald-200 dark:border-emerald-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1.5 uppercase tracking-wide">
+                <Receipt className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                <span>বাজার দর ও পাতা হিসাব (Price Breakdown)</span>
+              </span>
+
+              {discountPercent > 0 ? (
+                <span className="px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-[11px] flex items-center gap-1">
+                  <BadgePercent className="w-3.5 h-3.5" />
+                  {toBanglaNumber(discountPercent)}% ছাড়
                 </span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                    MRP: ৳{toBanglaNumber(medicine.mrp)}
-                  </span>
-                  {medicine.discountedPrice && medicine.discountedPrice !== medicine.mrp && (
-                    <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400">
-                      (বিশেষ ছাড় মূল্য: ৳{toBanglaNumber(medicine.discountedPrice)})
+              ) : (
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                  ভেরিফাইড মূল্য
+                </span>
+              )}
+            </div>
+
+            {hasPrice ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* 1. Price Per Strip (এক পাতার দাম) */}
+                <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-emerald-100 dark:border-emerald-900/60 shadow-2xs space-y-1">
+                  <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-medium text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <Layers className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      ১ পাতার দাম ({toBanglaNumber(tabletsPerStrip)} টি {medicine.dosageForm || "ট্যাবলেট"}):
                     </span>
-                  )}
+                  </div>
+
+                  <div className="flex items-baseline gap-2 pt-0.5">
+                    <span className="text-lg font-extrabold text-emerald-700 dark:text-emerald-400">
+                      ৳{toBanglaNumber(stripPrice.toFixed(2))}
+                    </span>
+                    {stripMrp > 0 && stripMrp !== stripPrice && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 line-through">
+                        ৳{toBanglaNumber(stripMrp.toFixed(2))}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      / পাতা
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    প্রতি পাতায় {toBanglaNumber(tabletsPerStrip)} টি ইউনিট থাকে
+                  </p>
+                </div>
+
+                {/* 2. Price Per Unit (১ টি ট্যাবলেটের দাম) */}
+                <div className="p-3 rounded-xl bg-white/90 dark:bg-slate-800/90 border border-teal-100 dark:border-teal-900/60 shadow-2xs space-y-1">
+                  <div className="flex items-center justify-between text-slate-500 dark:text-slate-400 font-medium text-[11px]">
+                    <span className="flex items-center gap-1">
+                      <Pill className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                      ১টি {medicine.dosageForm || "ট্যাবলেটের"} দাম:
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 pt-0.5">
+                    <span className="text-base font-bold text-slate-900 dark:text-white">
+                      ৳{toBanglaNumber(unitPrice.toFixed(2))}
+                    </span>
+                    {unitMrp > 0 && unitMrp !== unitPrice && (
+                      <span className="text-xs text-slate-400 dark:text-slate-500 line-through">
+                        MRP ৳{toBanglaNumber(unitMrp.toFixed(2))}
+                      </span>
+                    )}
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                      / পিস
+                    </span>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 dark:text-slate-500">
+                    খুচরা একক বিক্রয় মূল্য
+                  </p>
                 </div>
               </div>
-              {medicine.discountPercent && medicine.discountPercent > 0 ? (
-                <span className="px-2 py-1 rounded-lg bg-rose-100 dark:bg-rose-950 text-rose-700 dark:text-rose-300 font-bold text-xs">
-                  {toBanglaNumber(medicine.discountPercent)}% ছাড়
+            ) : (
+              <div className="p-3 rounded-xl bg-white/80 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-center space-y-1">
+                <p className="text-xs text-slate-600 dark:text-slate-300">
+                  এই ওষুধের সঠিক মূল্য সেট করা নেই।
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onEdit(medicine)}
+                  className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline cursor-pointer"
+                >
+                  মূল্য ও পাতা তথ্য যোগ করতে এডিট করুন →
+                </button>
+              </div>
+            )}
+
+            {/* Total Remaining Stock Value */}
+            {hasPrice && medicine.stock.totalUnits > 0 && (
+              <div className="pt-2 border-t border-emerald-200/60 dark:border-emerald-900/60 flex items-center justify-between text-xs">
+                <span className="text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                  <Coins className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  বর্তমান মজুদের আনুমানিক মূল্য ({toBanglaNumber(medicine.stock.totalUnits)}টি {medicine.dosageForm || "ট্যাবলেট"}):
                 </span>
-              ) : null}
-            </div>
-          )}
+                <span className="font-extrabold text-slate-900 dark:text-white">
+                  ৳{toBanglaNumber(totalStockPrice.toFixed(2))}
+                </span>
+              </div>
+            )}
+          </div>
           {/* Stock Alert Status */}
           <div className={`p-3.5 rounded-2xl border ${stockCalc.statusColor} flex items-center justify-between`}>
             <div>

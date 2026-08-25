@@ -281,8 +281,14 @@ export const MedicineListView: React.FC<MedicineListViewProps> = ({
                         {stockCalc.statusText}
                       </span>
                       {med.mrp !== undefined && med.mrp > 0 && (
-                        <div className="mt-1 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                          ৳{toBanglaNumber(med.discountedPrice || med.mrp)}
+                        <div className="mt-1 text-right">
+                          <div className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400">
+                            ৳{toBanglaNumber(((med.discountedPrice || med.mrp) * (med.stock.tabletsPerStrip || 10)).toFixed(2))}
+                            <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400"> / পাতা</span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 dark:text-slate-500">
+                            (৳{toBanglaNumber((med.discountedPrice || med.mrp).toFixed(2))} / পিস)
+                          </div>
                         </div>
                       )}
                     </div>
