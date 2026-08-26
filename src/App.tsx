@@ -22,7 +22,7 @@ import {
   DEFAULT_SAMPLE_MEDICINES
 } from "./types";
 import { soundManager } from "./utils/sound";
-import { calculateRemainingStrips, getCurrentTimeSlot } from "./utils/banglaUtils";
+import { calculateRemainingStrips, getCurrentTimeSlot, getLocalDateKey } from "./utils/banglaUtils";
 import {
   testConnection,
   subscribeAuth,
@@ -139,9 +139,21 @@ export default function App() {
   const [selectedDetailMed, setSelectedDetailMed] = useState<Medicine | null>(null);
   const [medicineToDelete, setMedicineToDelete] = useState<Medicine | null>(null);
 
-  // Today's date string YYYY-MM-DD
-  const todayKey = new Date().toISOString().split("T")[0];
+  // Auto-time and local date tracking (updates every 10 seconds)
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 10000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Today's local date string YYYY-MM-DD (e.g. 2026-08-25)
+  const todayKey = getLocalDateKey(currentTime);
+  const [selectedDateKey, setSelectedDateKey] = useState<string>(getLocalDateKey(new Date()));
+  const activeDateKey = selectedDateKey || todayKey;
   const todayLogs = dailyLogs[todayKey] || {};
+  const activeDateLogs = dailyLogs[activeDateKey] || {};
 
   // Verify Firestore connection on startup
   useEffect(() => {
@@ -323,11 +335,13 @@ export default function App() {
   };
 
   // Toggle Taken Status for a medicine and slot
-  const handleToggleTaken = (medicineId: string, slot: TimeSlot) => {
+  const handleToggleTaken = (medicineId: string, slot: TimeSlot, targetDateKey?: string) => {
     const med = medicines.find((m) => m.id === medicineId);
     if (!med) return;
 
-    const currentlyTaken = !!todayLogs[medicineId]?.[slot];
+    const dateKey = targetDateKey || selectedDateKey || todayKey;
+    const dateLogs = dailyLogs[dateKey] || {};
+    const currentlyTaken = !!dateLogs[medicineId]?.[slot];
     const willBeTaken = !currentlyTaken;
 
     // Calculate dosage amount
@@ -336,21 +350,23 @@ export default function App() {
     if (slot === "afternoon") doseAmount = med.schedule.afternoonDose || 1;
     if (slot === "night") doseAmount = med.schedule.nightDose || 1;
 
-    // Update Daily Log
+    // Update Daily Log for the specific dateKey
     setDailyLogs((prev) => {
-      const currentDay = prev[todayKey] || {};
+      const currentDay = prev[dateKey] || {};
       const currentMedLogs = currentDay[medicineId] || {};
 
       return {
         ...prev,
-        [todayKey]: {
+        [dateKey]: {
           ...currentDay,
           [medicineId]: {
             ...currentMedLogs,
             [slot]: willBeTaken,
             takenAt: {
               ...currentMedLogs.takenAt,
-              [slot]: willBeTaken ? new Date().toLocaleTimeString() : undefined
+              [slot]: willBeTaken
+                ? new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                : undefined
             }
           }
         }
@@ -387,65 +403,68 @@ export default function App() {
       })
     );
 
-    // Sync medicine stock to Cloud
-    if (user && updatedMed) {
-      syncMedicineToCloud(user.uid, updatedMed).catch((e) =>
-        console.warn("Stock cloud sync warning:", e)
-      );
+    // Sync medicine stock to Cloud & Log entry
+    if (user) {
+      if (updatedMed) {
+        syncMedicineToCloud(user.uid, updatedMed).catch((e) =>
+          console.warn("Stock cloud sync warning:", e)
+        );
+      }
       syncLogToCloud(user.uid, {
-        id: `log-${todayKey}-${medicineId}-${slot}`,
+        id: `log-${dateKey}-${medicineId}-${slot}`,
         medicineId,
         medicineName: med.name,
         status: willBeTaken ? "taken" : "missed",
-        date: todayKey,
+        date: dateKey,
         slot,
         unitsTaken: willBeTaken ? doseAmount : 0
       }).catch((e) => console.warn("Log cloud sync warning:", e));
     }
 
-    // Play Sound & Check for celebration
+    // Play Sound & Check for celebration if today's doses are all done
     if (willBeTaken) {
       soundManager.playTakeMedicineSound();
 
-      // Check if this was the last pending medicine today
-      setTimeout(() => {
-        let allDone = true;
-        medicines.forEach((m) => {
-          if (m.schedule.morning) {
-            if (m.id === medicineId && slot === "morning") {
-              // counted as taken
-            } else if (!todayLogs[m.id]?.morning) {
-              allDone = false;
+      if (dateKey === todayKey) {
+        setTimeout(() => {
+          let allDone = true;
+          medicines.forEach((m) => {
+            if (m.schedule.morning) {
+              if (m.id === medicineId && slot === "morning") {
+                // counted
+              } else if (!todayLogs[m.id]?.morning) {
+                allDone = false;
+              }
             }
-          }
-          if (m.schedule.afternoon) {
-            if (m.id === medicineId && slot === "afternoon") {
-              // counted
-            } else if (!todayLogs[m.id]?.afternoon) {
-              allDone = false;
+            if (m.schedule.afternoon) {
+              if (m.id === medicineId && slot === "afternoon") {
+                // counted
+              } else if (!todayLogs[m.id]?.afternoon) {
+                allDone = false;
+              }
             }
-          }
-          if (m.schedule.night) {
-            if (m.id === medicineId && slot === "night") {
-              // counted
-            } else if (!todayLogs[m.id]?.night) {
-              allDone = false;
+            if (m.schedule.night) {
+              if (m.id === medicineId && slot === "night") {
+                // counted
+              } else if (!todayLogs[m.id]?.night) {
+                allDone = false;
+              }
             }
-          }
-        });
+          });
 
-        if (allDone) {
-          try {
-            confetti({
-              particleCount: 80,
-              spread: 60,
-              origin: { y: 0.6 }
-            });
-          } catch (err) {
-            // ignore
+          if (allDone) {
+            try {
+              confetti({
+                particleCount: 80,
+                spread: 60,
+                origin: { y: 0.6 }
+              });
+            } catch (err) {
+              // ignore
+            }
           }
-        }
-      }, 100);
+        }, 100);
+      }
     }
   };
 
@@ -619,15 +638,6 @@ export default function App() {
     soundManager.playTakeMedicineSound();
   };
 
-  // Auto-time tracking for active slots (updates every 10 seconds)
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
-
   const currentSlotInfo = getCurrentTimeSlot(currentTime);
   const currentSlotMeds = medicines.filter((m) => !!m.schedule[currentSlotInfo.slot]);
   const currentSlotTakenCount = currentSlotMeds.filter(
@@ -685,8 +695,11 @@ export default function App() {
         {activeTab === "schedule" && (
           <ScheduleView
             medicines={medicines}
-            dateKey={todayKey}
-            logs={todayLogs}
+            dateKey={activeDateKey}
+            todayKey={todayKey}
+            logs={activeDateLogs}
+            allDailyLogs={dailyLogs}
+            onSelectDateKey={setSelectedDateKey}
             onToggleTaken={handleToggleTaken}
             onOpenMedicineDetails={(med) => setSelectedDetailMed(med)}
             onOpenAddModal={() => {

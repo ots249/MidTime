@@ -16,22 +16,36 @@ import {
   Filter,
   CheckCheck,
   Zap,
-  BellRing
+  BellRing,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  History,
+  ArrowRight
 } from "lucide-react";
-import { Medicine, TimeSlot, MealTiming } from "../types";
+import { Medicine, TimeSlot, MealTiming, DailyLog } from "../types";
 import {
   toBanglaNumber,
   formatMealTimingBangla,
   calculateRemainingStrips,
   getCurrentTimeSlot,
-  CurrentTimeSlotInfo
+  CurrentTimeSlotInfo,
+  getLocalDateKey,
+  formatBanglaDateFromKey,
+  parseLocalDateKey,
+  isDateToday,
+  isDateYesterday,
+  getBanglaDate
 } from "../utils/banglaUtils";
 
 interface ScheduleViewProps {
   medicines: Medicine[];
   dateKey: string;
-  logs: Record<string, { morning?: boolean; afternoon?: boolean; night?: boolean }>;
-  onToggleTaken: (medicineId: string, slot: TimeSlot) => void;
+  todayKey?: string;
+  logs: Record<string, { morning?: boolean; afternoon?: boolean; night?: boolean; takenAt?: Record<string, string> }>;
+  allDailyLogs?: DailyLog;
+  onSelectDateKey?: (dateKey: string) => void;
+  onToggleTaken: (medicineId: string, slot: TimeSlot, targetDateKey?: string) => void;
   onOpenMedicineDetails: (med: Medicine) => void;
   onOpenAddModal: () => void;
   onOpenPrescriptionTab: () => void;
@@ -41,7 +55,10 @@ interface ScheduleViewProps {
 export const ScheduleView: React.FC<ScheduleViewProps> = ({
   medicines,
   dateKey,
+  todayKey: propTodayKey,
   logs,
+  allDailyLogs = {},
+  onSelectDateKey,
   onToggleTaken,
   onOpenMedicineDetails,
   onOpenAddModal,
@@ -58,6 +75,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     }, 10000);
     return () => clearInterval(timer);
   }, []);
+
+  const realTodayKey = propTodayKey || getLocalDateKey(currentTime);
+  const isViewingToday = dateKey === realTodayKey;
+  const isViewingYesterday = isDateYesterday(dateKey);
+  const isViewingPast = dateKey < realTodayKey;
+  const isViewingFuture = dateKey > realTodayKey;
 
   const currentSlotInfo = getCurrentTimeSlot(currentTime);
 
@@ -108,6 +131,28 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     }
   ];
 
+  // Helper to navigate dates
+  const handleShiftDate = (days: number) => {
+    if (!onSelectDateKey) return;
+    const current = parseLocalDateKey(dateKey);
+    current.setDate(current.getDate() + days);
+    onSelectDateKey(getLocalDateKey(current));
+  };
+
+  const handleSetToday = () => {
+    if (onSelectDateKey) {
+      onSelectDateKey(realTodayKey);
+    }
+  };
+
+  const handleSetYesterday = () => {
+    if (onSelectDateKey) {
+      const y = new Date();
+      y.setDate(y.getDate() - 1);
+      onSelectDateKey(getLocalDateKey(y));
+    }
+  };
+
   // Helper to test if a medicine is scheduled for a slot
   const isScheduled = (med: Medicine, slot: TimeSlot): boolean => {
     return !!med.schedule[slot];
@@ -131,7 +176,11 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
     return !!logs[medId]?.[slot];
   };
 
-  // Calculate overall progress for today
+  const getTakenTimestamp = (medId: string, slot: TimeSlot): string | undefined => {
+    return logs[medId]?.takenAt?.[slot];
+  };
+
+  // Calculate overall progress for the selected date
   let totalTasks = 0;
   let takenTasks = 0;
 
@@ -154,20 +203,177 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
 
   // Active slots to display: if "auto", display current slot; if "all", all slots; else specific slot
   const activeSlots =
-    selectedSlot === "auto"
+    selectedSlot === "auto" && isViewingToday
       ? timeSlots.filter((s) => s.id === currentSlotInfo.slot)
-      : selectedSlot === "all"
+      : selectedSlot === "all" || (selectedSlot === "auto" && !isViewingToday)
       ? timeSlots
       : timeSlots.filter((s) => s.id === selectedSlot);
 
-  // Current slot pending tasks count
-  const currentSlotMeds = medicines.filter((m) => isScheduled(m, currentSlotInfo.slot));
-  const currentSlotTakenCount = currentSlotMeds.filter((m) => isTaken(m.id, currentSlotInfo.slot)).length;
-  const currentSlotPendingCount = Math.max(0, currentSlotMeds.length - currentSlotTakenCount);
+  // Yesterday summary count for reassurance
+  const yesterdayKey = (() => {
+    const y = new Date();
+    y.setDate(y.getDate() - 1);
+    return getLocalDateKey(y);
+  })();
+  const yesterdayLogs = allDailyLogs[yesterdayKey] || {};
+  let yesterdayTakenCount = 0;
+  medicines.forEach((m) => {
+    if (m.schedule.morning && yesterdayLogs[m.id]?.morning) yesterdayTakenCount++;
+    if (m.schedule.afternoon && yesterdayLogs[m.id]?.afternoon) yesterdayTakenCount++;
+    if (m.schedule.night && yesterdayLogs[m.id]?.night) yesterdayTakenCount++;
+  });
 
   return (
     <div className="max-w-5xl mx-auto px-3 sm:px-6 py-4 space-y-4">
-      {/* Daily Progress Card */}
+      {/* Date Navigation & Status Bar */}
+      <div className="bg-white dark:bg-slate-900 rounded-3xl p-3.5 sm:p-4.5 border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Date Selector Navigation Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <button
+              id="prev-date-btn"
+              type="button"
+              onClick={() => handleShiftDate(-1)}
+              title="পূর্ববর্তী দিনের সূচি দেখুন"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Quick Date Pills */}
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl">
+              <button
+                id="quick-yesterday-btn"
+                type="button"
+                onClick={handleSetYesterday}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  isViewingYesterday
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                গতকাল
+              </button>
+              <button
+                id="quick-today-btn"
+                type="button"
+                onClick={handleSetToday}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isViewingToday
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                <span>আজ</span>
+                {isViewingToday && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                )}
+              </button>
+              <button
+                id="quick-tomorrow-btn"
+                type="button"
+                onClick={() => handleShiftDate(1)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  dateKey ===
+                  getLocalDateKey(
+                    new Date(Date.now() + 24 * 60 * 60 * 1000)
+                  )
+                    ? "bg-teal-600 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
+                }`}
+              >
+                আগামীকাল
+              </button>
+            </div>
+
+            <button
+              id="next-date-btn"
+              type="button"
+              onClick={() => handleShiftDate(1)}
+              title="পরবর্তী দিনের সূচি দেখুন"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+
+            {/* Custom Date Picker Input */}
+            <div className="relative inline-flex items-center">
+              <label
+                htmlFor="custom-date-picker"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-colors"
+                title="যেকোনো নির্দিষ্ট তারিখের হিস্ট্রি নির্বাচন করুন"
+              >
+                <Calendar className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+                <span>তারিখ বাছুন</span>
+                <input
+                  id="custom-date-picker"
+                  type="date"
+                  value={dateKey}
+                  onChange={(e) => {
+                    if (e.target.value && onSelectDateKey) {
+                      onSelectDateKey(e.target.value);
+                    }
+                  }}
+                  className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Current Formatted Date Display */}
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-slate-800 dark:text-slate-100">
+            <CalendarDays className="w-4 h-4 text-teal-600 dark:text-teal-400 shrink-0" />
+            <span>{formatBanglaDateFromKey(dateKey)}</span>
+            {isViewingPast && !isViewingToday && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-semibold">
+                <History className="w-3 h-3" /> হিস্ট্রি রেকর্ড
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* History / Date Context Banner */}
+        {!isViewingToday && (
+          <div
+            className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs ${
+              isViewingPast
+                ? "bg-sky-50/70 dark:bg-sky-950/40 border-sky-200/80 dark:border-sky-900/60 text-sky-900 dark:text-sky-200"
+                : "bg-purple-50/70 dark:bg-purple-950/40 border-purple-200/80 dark:border-purple-900/60 text-purple-900 dark:text-purple-200"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400" />
+              <div>
+                <span className="font-bold">
+                  {isViewingYesterday
+                    ? "আপনি গতকালের সংরক্ষিত রেকর্ড দেখছেন"
+                    : isViewingPast
+                    ? `আপনি বিগত দিনের (${dateKey}) সংরক্ষিত রেকর্ড দেখছেন`
+                    : `আপনি ভবিষ্যতের দিন (${dateKey}) এর পূর্বরূপ দেখছেন`}
+                  :
+                </span>{" "}
+                {totalTasks > 0
+                  ? `ওই দিনে মোট ${toBanglaNumber(totalTasks)} টি ডোজের মধ্যে ${toBanglaNumber(
+                      takenTasks
+                    )} টি গ্রহণ করা হয়েছিল (${toBanglaNumber(progressPercentage)}% সম্পন্ন)।`
+                  : "কোনো ওষুধ নির্ধারিত ছিল না।"}
+              </div>
+            </div>
+
+            <button
+              id="back-to-today-btn"
+              type="button"
+              onClick={handleSetToday}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs whitespace-nowrap self-end sm:self-auto cursor-pointer transition-all shadow-xs"
+            >
+              <span>আজকে ফিরে যান</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Progress & Slot Filter Card */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 shadow-xs transition-colors space-y-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -177,11 +383,15 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
-                  আজকের ওষুধ সেবন সূচি
+                  {isViewingToday
+                    ? "আজকের ওষুধ সেবন সূচি"
+                    : isViewingYesterday
+                    ? "গতকালের ওষুধ সেবন রেকর্ড"
+                    : `${getBanglaDate(parseLocalDateKey(dateKey))} এর সূচি`}
                 </h2>
                 {progressPercentage === 100 && totalTasks > 0 ? (
                   <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-900">
-                    <Sparkles className="w-3.5 h-3.5" /> আজকের সব ওষুধ সম্পন্ন!
+                    <Sparkles className="w-3.5 h-3.5" /> সব ওষুধ সম্পন্ন!
                   </span>
                 ) : (
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-semibold">
@@ -190,39 +400,41 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 )}
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                আজকের মোট {toBanglaNumber(totalTasks)} টি ডোজের মধ্যে {toBanglaNumber(takenTasks)} টি গ্রহণ করা হয়েছে ({toBanglaNumber(totalTasks - takenTasks)} টি বাকি)।
+                মোট {toBanglaNumber(totalTasks)} টি ডোজের মধ্যে {toBanglaNumber(takenTasks)} টি গ্রহণ করা হয়েছে ({toBanglaNumber(totalTasks - takenTasks)} টি বাকি)।
               </p>
             </div>
           </div>
 
           {/* Slot filter chips with Auto-Time detection */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none text-xs">
-            {/* Auto Slot (Based on Current Time) */}
-            <button
-              id="filter-slot-auto"
-              type="button"
-              onClick={() => setSelectedSlot("auto")}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedSlot === "auto"
-                  ? "bg-teal-600 text-white shadow-md shadow-teal-600/20 ring-2 ring-teal-400/40"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-              }`}
-              title="বর্তমান সময়ের স্লট (সকাল/দুপুর/রাত) স্বয়ংক্রিয়ভাবে দেখাবে"
-            >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
-              </span>
-              <Zap className="w-3.5 h-3.5" />
-              <span>অটো: {currentSlotInfo.labelBn}বেলা</span>
-            </button>
+            {/* Auto Slot (Based on Current Time - only for today) */}
+            {isViewingToday && (
+              <button
+                id="filter-slot-auto"
+                type="button"
+                onClick={() => setSelectedSlot("auto")}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedSlot === "auto"
+                    ? "bg-teal-600 text-white shadow-md shadow-teal-600/20 ring-2 ring-teal-400/40"
+                    : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+                title="বর্তমান সময়ের স্লট (সকাল/দুপুর/রাত) স্বয়ংক্রিয়ভাবে দেখাবে"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                </span>
+                <Zap className="w-3.5 h-3.5" />
+                <span>অটো: {currentSlotInfo.labelBn}বেলা</span>
+              </button>
+            )}
 
             <button
               id="filter-slot-all"
               type="button"
               onClick={() => setSelectedSlot("all")}
               className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
-                selectedSlot === "all"
+                selectedSlot === "all" || (!isViewingToday && selectedSlot === "auto")
                   ? "bg-slate-900 dark:bg-slate-700 text-white shadow-xs"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
               }`}
@@ -233,7 +445,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
             {timeSlots.map((slot) => {
               const count = medicines.filter((m) => isScheduled(m, slot.id)).length;
               const Icon = slot.icon;
-              const isCurrent = slot.id === currentSlotInfo.slot;
+              const isCurrent = slot.id === currentSlotInfo.slot && isViewingToday;
               return (
                 <button
                   key={slot.id}
@@ -309,7 +521,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
           const slotMeds = medicines.filter((m) => isScheduled(m, slot.id));
           const slotCompletedCount = slotMeds.filter((m) => isTaken(m.id, slot.id)).length;
           const isAllSlotDone = slotMeds.length > 0 && slotCompletedCount === slotMeds.length;
-          const isCurrentActiveSlot = slot.id === currentSlotInfo.slot;
+          const isCurrentActiveSlot = slot.id === currentSlotInfo.slot && isViewingToday;
           const pendingInThisSlot = Math.max(0, slotMeds.length - slotCompletedCount);
 
           return (
@@ -387,6 +599,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                 ) : (
                   slotMeds.map((med) => {
                     const taken = isTaken(med.id, slot.id);
+                    const takenAtTime = getTakenTimestamp(med.id, slot.id);
                     const dose = getDoseForSlot(med, slot.id);
                     const timing = getTimingForSlot(med, slot.id);
                     const timingFormat = formatMealTimingBangla(timing);
@@ -396,7 +609,7 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                       <div
                         key={med.id}
                         className={`py-3.5 first:pt-0.5 last:pb-0.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 transition-all ${
-                          taken ? "opacity-70" : ""
+                          taken ? "opacity-75" : ""
                         }`}
                       >
                         {/* Medicine Info */}
@@ -455,11 +668,19 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                               </p>
                             )}
 
-                            {/* Stock Indicator Banner */}
+                            {/* Stock & Taken Details Indicator */}
                             <div className="flex flex-wrap items-center gap-2 pt-0.5 text-xs">
                               <span className="font-semibold text-slate-700 dark:text-slate-300">
                                 ডোজ: {toBanglaNumber(dose)} টি {med.dosageForm || "ট্যাবলেট"}
                               </span>
+                              {taken && takenAtTime && (
+                                <>
+                                  <span className="text-slate-300 dark:text-slate-600">•</span>
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-900">
+                                    <Clock className="w-3 h-3" /> সময়: {takenAtTime}
+                                  </span>
+                                </>
+                              )}
                               <span className="text-slate-300 dark:text-slate-600">•</span>
                               <span
                                 className={`px-2 py-0.5 rounded-md border font-medium ${stockCalc.statusColor}`}
@@ -480,8 +701,12 @@ export const ScheduleView: React.FC<ScheduleViewProps> = ({
                           <button
                             id={`toggle-taken-${slot.id}-${med.id}`}
                             type="button"
-                            onClick={() => onToggleTaken(med.id, slot.id)}
-                            title={taken ? "পুনরায় গ্রহণ না করা হিসেবে চিহ্নিত করুন" : "ওষুধ গ্রহণ সম্পন্ন চিহ্নিত করুন"}
+                            onClick={() => onToggleTaken(med.id, slot.id, dateKey)}
+                            title={
+                              taken
+                                ? "পুনরায় গ্রহণ না করা হিসেবে চিহ্নিত করুন"
+                                : "ওষুধ গ্রহণ সম্পন্ন চিহ্নিত করুন"
+                            }
                             className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl font-bold text-xs sm:text-sm transition-all cursor-pointer active:scale-95 shadow-xs ${
                               taken
                                 ? "bg-emerald-600 hover:bg-emerald-700 text-white"

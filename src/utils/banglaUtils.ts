@@ -8,6 +8,46 @@ export const toBanglaNumber = (num: number | string | undefined | null): string 
     .replace(/\d/g, (digit) => banglaDigits[parseInt(digit, 10)]);
 };
 
+/**
+ * Returns local YYYY-MM-DD string avoiding UTC timezone offset bugs
+ */
+export const getLocalDateKey = (date: Date = new Date()): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+export const parseLocalDateKey = (key: string): Date => {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(y, (m || 1) - 1, d || 1);
+};
+
+export const isDateToday = (dateKey: string): boolean => {
+  return dateKey === getLocalDateKey(new Date());
+};
+
+export const isDateYesterday = (dateKey: string): boolean => {
+  const y = new Date();
+  y.setDate(y.getDate() - 1);
+  return dateKey === getLocalDateKey(y);
+};
+
+export const formatBanglaDateFromKey = (dateKey: string): string => {
+  if (isDateToday(dateKey)) {
+    return "আজ (" + getBanglaDate(parseLocalDateKey(dateKey)) + ")";
+  }
+  if (isDateYesterday(dateKey)) {
+    return "গতকাল (" + getBanglaDate(parseLocalDateKey(dateKey)) + ")";
+  }
+  const tom = new Date();
+  tom.setDate(tom.getDate() + 1);
+  if (dateKey === getLocalDateKey(tom)) {
+    return "আগামীকাল (" + getBanglaDate(parseLocalDateKey(dateKey)) + ")";
+  }
+  return getBanglaDate(parseLocalDateKey(dateKey));
+};
+
 export const getBanglaDate = (date: Date = new Date()): string => {
   const days = [
     "রবিবার",
